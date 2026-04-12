@@ -75,7 +75,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
 
   const dateInput = new TextInputBuilder()
     .setCustomId('date')
-    .setLabel('Start Date (ISO 8601, leave blank for today 09:00)')
+    .setLabel('Start Date (blank = today 09:00)')
     .setStyle(TextInputStyle.Short)
     .setPlaceholder('e.g. 2026-04-12T09:00:00Z')
     .setRequired(false)
