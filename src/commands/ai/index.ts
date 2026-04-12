@@ -13,6 +13,7 @@ const data = new SlashCommandBuilder()
   .addSubcommand(sub => sub.setName('history').setDescription('Show your recent conversation'))
   .addSubcommand(sub => sub.setName('persona').setDescription('Update Priestess system prompt'))
   .addSubcommand(sub => sub.setName('usage').setDescription('Show your Priestess token usage stats'))
+  .addSubcommand(sub => sub.setName('reset').setDescription('Reset persona to default and clear conversation history'))
 
 async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const sub = interaction.options.getSubcommand()
@@ -20,6 +21,16 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
   if (sub === 'clear') {
     await clearHistory(interaction.user.id)
     await interaction.reply({ content: 'Conversation history cleared. Priestess starts fresh.', ephemeral: true })
+    return
+  }
+
+  if (sub === 'reset') {
+    const db = getPool()
+    await Promise.all([
+      clearHistory(interaction.user.id),
+      db.query('DELETE FROM ai_persona WHERE user_id = $1', [interaction.user.id]),
+    ])
+    await interaction.reply({ content: 'Persona reset to default and conversation history cleared.', ephemeral: true })
     return
   }
 

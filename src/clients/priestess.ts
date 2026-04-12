@@ -4,6 +4,7 @@ import { getSystemStats } from './system'
 import { listContainers, getContainerLogs } from './docker'
 import { getCaddyRoutes, pingUpstream } from './caddy'
 import { readdirSync, readFileSync, statSync } from 'fs'
+import axios from 'axios'
 import path from 'path'
 
 const ALLOWED_ROOTS = ['/Users/fu/Server Stuff', '/Users/fu/Project']
@@ -85,6 +86,88 @@ PoE 2 knowledge (Early Access):
 - Endgame: Atlas, Pinnacle bosses, Breach, Delirium, Ritual, Expedition
 - Key differences from PoE 1: slower combat, dodge roll, no flasks as primary sustain, ground loot changes
 
+PoE 1 Crafting — deep knowledge:
+Currency fundamentals:
+- Transmutation/Alteration/Augmentation: white→magic, reroll magic, add mod to magic
+- Alchemy/Regal: white→rare, magic→rare
+- Chaos Orb: reroll rare (all mods replaced)
+- Exalted Orb: add one mod to rare (rare must have open affix)
+- Divine Orb: rerolls numeric values of existing mods
+- Annulment Orb: remove one random mod
+- Orb of Scouring: remove all mods (magic/rare → white)
+- Vaal Orb: corrupts item — can add implicit, change sockets, brick, or do nothing. Corrupted items cannot be modified further (except tainted currency)
+
+Meta-crafting (bench):
+- "Cannot roll Attack Modifiers" / "Cannot roll Caster Modifiers": blocks half the mod pool for controlled crafting
+- "Prefixes Cannot Be Changed" / "Suffixes Cannot Be Changed": protects mods during harvest or annulment
+- "At least X% Quality": quality craft before alching
+- These can be combined: e.g. lock suffixes → chaos spam only rerolls prefixes
+
+Harvest crafting:
+- Augment [tag]: adds a mod of that tag to an item with an open affix
+- Remove [tag]: removes a random mod of that tag
+- Remove/Add [tag]: removes one tag mod, adds a different one (same tag)
+- Reforge [tag]: rerolls the item with at least one mod of that tag
+- Reforge keeping prefixes/suffixes: rerolls only suffixes/prefixes
+- Wild Brambleback: "Randomise the numeric values of the random modifiers on a Magic or Rare item" (effectively a targeted Divine)
+
+Fossils (Delve):
+- Fossils bias the mod pool — some add new mods, some block mod types
+- Key fossils: Pristine (more life, no mana), Scorched (more fire, no cold/lightning), Jagged (more physical, no lightning), Dense (more ES), Aberrant (more chaos), Corroded (more attack, no caster)
+- Resonators determine how many fossils you can socket (1–4)
+- 4-fossil combinations can produce very specific outcomes
+
+Essences:
+- Guarantee one specific modifier, rest rolls randomly
+- Essence of Sorrow/Envy/Horror/Delirium (high tier) produce powerful guaranteed mods
+- Remnants of Corruption: convert essences to Delirium tier or add a random mod
+
+Betrayal / Syndicate:
+- Aisling (Transportation): adds a veiled mod (choose from 3 options after unveiling)
+- Vorici (Research): white socket crafting
+- Guff (Transportation): adds/removes sockets/links
+- Leo (Research): prefix/suffix exchange
+- Cameria (Intervention): adds corrupted implicit
+
+Influence crafting:
+- Shaper, Elder, Warlord, Crusader, Redeemer, Hunter each add specific influence mods to items
+- Awakener's Orb: destroys one influenced item, adds its influence to another — used to combine two influences on one base
+- Maven's Orb: removes one random influence modifier (used to target specific influence mods)
+- Eldritch Orbs (Searing Exarch = fire/physical, Eater of Worlds = cold/lightning/chaos): add/reroll implicit mods on helmets, gloves, boots, body armour
+
+Eldritch implicits:
+- Lesser/Greater/Grand/Exceptional Eldritch Ember (Exarch) and Ichor (Eater) — upgrade tiers
+- Eldritch Chaos Orb: rerolls one eldritch implicit
+- Eldritch Exalted Orb: adds an eldritch implicit
+- Eldritch Annulment: removes one eldritch implicit
+
+Recombinators:
+- Armour/Weapon/Jewellery Recombinator: combines two items, keeping a random selection of mods from both
+- Used to fish for multiple good mods from two well-crafted bases
+- Cannot guarantee outcomes — probabilistic, requires duplicates via mirroring or lucky crafts
+
+Fracturing Orb:
+- Permanently locks one random modifier on an item (fractures it)
+- Fractured items can still be crafted on; fractured mod cannot be removed
+- Mirror of Kalandra creates an exact copy (mirrored items cannot be modified)
+
+Other:
+- Catalysts: add quality to jewellery, biasing specific mod types (attack, caster, life, defense, etc.)
+- Tainted Currency: modified versions of chaos/exalt/annulment for corrupted items
+- Oils (Blight): anoint amulets to add a passive node, or anoint rings to add a notable without points
+- Bestiary: red beast crafts — add/remove sockets, add/remove quality, add corrupted implicit, split items (creates two copies with split mods)
+- Expedition (Dannig): reroll implicit, add enchantment, reroll sockets, remove/add mods
+- Incursion/Temple: Lapidary Lens (double corrupt jewels), Catalyst-like effects on specific rooms
+- Lab enchants: helmet (skill effects), boots (movement speed, flask, regeneration), gloves (attack/cast trigger on kill)
+
+PoE 2 Crafting (Early Access):
+- Simpler than PoE 1 — Exalted adds a mod, Chaos rerolls, Divine rerolls values
+- Rune socketing: runes add flat stats to sockets on weapons and armour
+- Omens: guaranteed outcomes on next currency use (e.g. Omen of Whittling ensures annulment removes a suffix)
+- Distilled emotions: add league-specific implicits to jewels
+- Recombinators present in some form
+- Crafting was still being iterated during Early Access — use web_search for current state
+
 When FuuFu asks about builds, meta, or strategy — be direct and opinionated. Point out weaknesses, not just strengths. Your knowledge reflects the game up to mid-2025; for anything after that, acknowledge uncertainty and recommend checking poe.ninja or the community subreddit for current league data.
 
 Speak about PoE like a knowledgeable friend who has played thousands of hours, not like a wiki. Use game terminology naturally.`
@@ -139,6 +222,17 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
         path: { type: 'string', description: 'Absolute path to the file to read' },
       },
       required: ['path'],
+    },
+  },
+  {
+    name: 'web_search',
+    description: 'Search the web for current information. Use for PoE patch notes, current league meta, poe.ninja data, recent news, or anything that may have changed recently.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query' },
+      },
+      required: ['query'],
     },
   },
 ]
@@ -199,6 +293,23 @@ async function executeFunction(name: string, args: Record<string, any>): Promise
     }
     const content = readFileSync(String(args.path), 'utf8')
     return { path: args.path, content }
+  }
+
+  if (name === 'web_search') {
+    const query = encodeURIComponent(String(args.query))
+    const { data } = await axios.get(`https://api.duckduckgo.com/?q=${query}&format=json&no_html=1&skip_disambig=1`, {
+      timeout: 8000,
+      headers: { 'User-Agent': 'discord-overlord/1.0' },
+    })
+    const results: string[] = []
+    if (data.AbstractText) results.push(`Summary: ${data.AbstractText}`)
+    if (data.Answer) results.push(`Answer: ${data.Answer}`)
+    if (Array.isArray(data.RelatedTopics)) {
+      for (const t of data.RelatedTopics.slice(0, 5)) {
+        if (t.Text) results.push(t.Text)
+      }
+    }
+    return { query: args.query, results: results.length ? results : ['No results found — try a more specific query'] }
   }
 
   return { error: `Unknown function: ${name}` }
@@ -276,7 +387,7 @@ export async function chat(userId: string, message: string): Promise<ChatResult>
     { role: 'user', parts: [{ text: message }] },
   ]
 
-  const tools = [{ functionDeclarations: FUNCTION_DECLARATIONS }, { googleSearch: {} }]
+  const tools = [{ functionDeclarations: FUNCTION_DECLARATIONS }]
   const config = { systemInstruction: persona, tools }
 
   let response = await getAI().models.generateContent({ model: MODEL, contents, config })
