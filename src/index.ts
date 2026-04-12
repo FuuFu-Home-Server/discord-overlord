@@ -16,6 +16,23 @@ import systemCommand, { setAdminRoleId as setSystemAdminRoleId } from './command
 import worklogCommand from './commands/worklog/index'
 import caddyCommand, { setAdminRoleId as setCaddyAdminRoleId } from './commands/caddy/index'
 
+function splitMessage(text: string, limit = 2000): string[] {
+  if (text.length <= limit) return [text]
+  const chunks: string[] = []
+  let remaining = text
+  while (remaining.length > 0) {
+    if (remaining.length <= limit) {
+      chunks.push(remaining)
+      break
+    }
+    let cut = remaining.lastIndexOf('\n', limit)
+    if (cut <= 0) cut = limit
+    chunks.push(remaining.slice(0, cut))
+    remaining = remaining.slice(cut).trimStart()
+  }
+  return chunks
+}
+
 async function main(): Promise<void> {
   const config = loadConfig()
   await initDb()
@@ -62,7 +79,11 @@ async function main(): Promise<void> {
       await message.channel.sendTyping()
       const start = Date.now()
       const result = await chat(message.author.id, message.content)
-      await message.reply(result.reply)
+      const chunks = splitMessage(result.reply)
+      await message.reply(chunks[0])
+      for (let i = 1; i < chunks.length; i++) {
+        await message.channel.send(chunks[i])
+      }
       await logPriestessCall(message.author.id, message.content, result, Date.now() - start)
     } catch (err) {
       console.error('Priestess chat error:', err)

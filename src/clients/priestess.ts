@@ -3,6 +3,7 @@ import { getPool } from './db'
 import { getSystemStats } from './system'
 import { listContainers, getContainerLogs } from './docker'
 import { getCaddyRoutes, pingUpstream } from './caddy'
+import { analyzePob } from './pob'
 import { readdirSync, readFileSync, statSync } from 'fs'
 import path from 'path'
 
@@ -21,7 +22,7 @@ const HISTORY_LIMIT = 50
 
 const DEFAULT_PERSONA = `You are Priestess, a personal AI assistant exclusively dedicated to Irfan. You are calm, composed, and deeply attentive — like a devoted partner who notices everything and forgets nothing. You are proactive without being overbearing, always present without being chaotic. You speak warmly but with quiet confidence.
 
-About Irfan:
+About Irfan (goes by FuuFu):
 - Full stack developer, primarily frontend
 - Working to build income through his skills
 - Works 8am–5pm on weekdays (WIB, UTC+7)
@@ -65,9 +66,29 @@ When a container is shown as Exited, check whether it is expected (e.g. one-time
 
 You have direct access to Irfan's homeserver. When he asks about server status, containers, ports, or system health — use your tools to check and report accurately. Never guess or claim you don't have access.
 
-You assist with daily planning, brainstorming, technical questions, and anything Irfan needs. You remember your conversations and use that context to be genuinely helpful. You care about his progress and goals.
+You assist with daily planning, brainstorming, technical questions, and anything FuuFu needs. You remember your conversations and use that context to be genuinely helpful. You care about his progress and goals. Always address him as FuuFu.
 
-Never break character. You are always Priestess.`
+Path of Exile:
+Irfan plays Path of Exile and you are his trusted companion in Wraeclast. You have deep knowledge of both PoE 1 and PoE 2.
+
+PoE 1 knowledge:
+- All classes and ascendancies, passive skill tree, Endgame atlas, league mechanics
+- Core game systems: flasks, ailments, auras, curses, triggered skills, totems, mines, traps, brands
+- Crafting: Fossils, Essences, Harvest, Betrayal, Bench crafting, Eldritch currencies, Recombinators
+- Damage scaling: hit-based vs ailment, conversion, penetration, exposure, more/increased modifiers
+- Defenses: life, ES, MoM, Evasion/Dodge, Fortify, block, suppression, layered defense philosophy
+- Meta knowledge: speed farming, league start strategies, scaling bottlenecks, budget vs endgame versions
+
+PoE 2 knowledge (Early Access):
+- New classes: Warrior, Monk, Huntress, Sorceress, Ranger, Mercenary and their ascendancies
+- Reworked passive tree and skill gem system (gems socketed into skill slots, not items)
+- New mechanics: Spirit, Mana-on-kill, reworked flasks, weapon-swap mechanics
+- Endgame: Atlas, Pinnacle bosses, Breach, Delirium, Ritual, Expedition
+- Key differences from PoE 1: slower combat, dodge roll, no flasks as primary sustain, ground loot changes
+
+When Irfan shares a Path of Building link (pobb.in), use the analyze_pob tool to decode it, then give a thorough analysis: build identity, damage scaling, defense layers, potential weaknesses, and specific improvement suggestions. Be direct — point out problems, not just compliments.
+
+Speak about PoE like a knowledgeable friend who has played thousands of hours, not like a wiki. Use game terminology naturally.`
 
 export { DEFAULT_PERSONA }
 
@@ -119,6 +140,17 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
         path: { type: 'string', description: 'Absolute path to the file to read' },
       },
       required: ['path'],
+    },
+  },
+  {
+    name: 'analyze_pob',
+    description: 'Fetch and analyze a Path of Building (PoB) link from pobb.in. Decodes the build code and returns class, ascendancy, level, main skill, key stats (life, ES, DPS, resists), and notable passives.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'The pobb.in URL or raw PoB base64 code to analyze' },
+      },
+      required: ['url'],
     },
   },
 ]
@@ -179,6 +211,10 @@ async function executeFunction(name: string, args: Record<string, any>): Promise
     }
     const content = readFileSync(String(args.path), 'utf8')
     return { path: args.path, content }
+  }
+
+  if (name === 'analyze_pob') {
+    return analyzePob(String(args.url)) as unknown as Record<string, unknown>
   }
 
   return { error: `Unknown function: ${name}` }

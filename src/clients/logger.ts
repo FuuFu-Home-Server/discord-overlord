@@ -27,7 +27,7 @@ export async function logStartup(tag: string): Promise<void> {
 
 export async function logPriestessCall(userId: string, message: string, result: ChatResult, durationMs: number): Promise<void> {
   const lines = [
-    `**He said:** ${message.slice(0, 300)}${message.length > 300 ? '…' : ''}`,
+    `**FuuFu said:** ${message.slice(0, 300)}${message.length > 300 ? '…' : ''}`,
     `**I said:** ${result.reply.slice(0, 300)}${result.reply.length > 300 ? '…' : ''}`,
     `*${durationMs}ms · ${result.totalTokens} tokens (${result.promptTokens} in / ${result.outputTokens} out) — \`${userId}\`*`,
   ]
@@ -40,8 +40,8 @@ export async function logPriestessError(userId: string, message: string, err: un
     : `\`\`\`\n${String(err).slice(0, 800)}\n\`\`\``
 
   const lines = [
-    `Something went wrong while I was attending to \`${userId}\`.`,
-    `**He said:** ${message.slice(0, 300)}${message.length > 300 ? '…' : ''}`,
+    `Something went wrong while I was attending to FuuFu.`,
+    `**FuuFu said:** ${message.slice(0, 300)}${message.length > 300 ? '…' : ''}`,
     errorDetail,
   ]
   await sendLog(lines.join('\n'))
