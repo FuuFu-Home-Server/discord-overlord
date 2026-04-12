@@ -4,12 +4,19 @@ function getDocker(): Docker {
   return new Docker({ socketPath: '/var/run/docker.sock' })
 }
 
+export interface ContainerPort {
+  hostPort: number
+  containerPort: number
+  protocol: string
+}
+
 export interface ContainerSummary {
   id: string
   name: string
   status: string
   state: string
   image: string
+  ports: ContainerPort[]
 }
 
 export interface DockerEvent {
@@ -42,6 +49,9 @@ export async function listContainers(all = true): Promise<ContainerSummary[]> {
     status: c.Status,
     state: c.State,
     image: c.Image,
+    ports: (c.Ports ?? [])
+      .filter(p => p.PublicPort)
+      .map(p => ({ hostPort: p.PublicPort!, containerPort: p.PrivatePort, protocol: p.Type })),
   }))
 }
 
