@@ -1,70 +1,44 @@
-name: Deploy
+name: Deploy discord-overlord to Mac Mini
 
 on:
   push:
-    branches: [main]
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+    branches:
+      - master
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha,prefix=sha-
-            type=raw,value=latest
-
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       - name: Connect to Tailscale
         uses: tailscale/github-action@v2
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-client-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
-          tags: tag:ci
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
 
-      - name: Deploy to homeserver
-        uses: appleboy/ssh-action@v1
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          DOCKER_ADMIN_ROLE_ID: ${{ secrets.DOCKER_ADMIN_ROLE_ID }}
+          WORKLOG_ROLE_ID: ${{ secrets.WORKLOG_ROLE_ID }}
+          ALERTS_CHANNEL_ID: ${{ secrets.ALERTS_CHANNEL_ID }}
+          WORKLOG_API_URL: ${{ secrets.WORKLOG_API_URL }}
+          WORKLOG_API_KEY: ${{ secrets.WORKLOG_API_KEY }}
+          GH_PAT: ${{ secrets.GH_PAT }}
         with:
-          host: ${{ secrets.HOMESERVER_TAILSCALE_IP }}
-          username: ${{ secrets.HOMESERVER_SSH_USER }}
-          key: ${{ secrets.HOMESERVER_SSH_KEY }}
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: DISCORD_TOKEN,DISCORD_GUILD_ID,DISCORD_CLIENT_ID,DOCKER_ADMIN_ROLE_ID,WORKLOG_ROLE_ID,ALERTS_CHANNEL_ID,WORKLOG_API_URL,WORKLOG_API_KEY,GH_PAT
           script: |
-            cd ~/discord-overlord
-            docker compose pull discord-overlord
-            docker compose up -d discord-overlord
-            docker image prune -f
+            export PATH=$PATH:/usr/local/bin:/opt/homebrew/bin:~/.docker/bin
+
+            cd /Users/fu/Project/discord-overlord
+
+            git pull "https://x-access-token:${GH_PAT}@github.com/jauhari-i/discord-overlord.git" master
+
+            printf 'DISCORD_TOKEN=%s\nDISCORD_GUILD_ID=%s\nDISCORD_CLIENT_ID=%s\nDOCKER_ADMIN_ROLE_ID=%s\nWORKLOG_ROLE_ID=%s\nALERTS_CHANNEL_ID=%s\nWORKLOG_API_URL=%s\nWORKLOG_API_KEY=%s\n' \
+              "$DISCORD_TOKEN" "$DISCORD_GUILD_ID" "$DISCORD_CLIENT_ID" "$DOCKER_ADMIN_ROLE_ID" "$WORKLOG_ROLE_ID" "$ALERTS_CHANNEL_ID" "$WORKLOG_API_URL" "$WORKLOG_API_KEY" > .env
+
+            docker compose up -d --build

@@ -1,6 +1,6 @@
 services:
   discord-overlord:
-    image: ghcr.io/YOUR_GITHUB_USERNAME/discord-overlord:latest
+    build: .
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
