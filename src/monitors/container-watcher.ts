@@ -1,5 +1,5 @@
 import { Client, EmbedBuilder } from 'discord.js'
-import { streamEvents } from '../clients/docker'
+import { streamEvents, getContainerLogs } from '../clients/docker'
 
 export function startContainerWatcher(client: Client, alertsChannelId: string): void {
   streamEvents((event) => {
@@ -13,12 +13,18 @@ export function startContainerWatcher(client: Client, alertsChannelId: string): 
     const exitCode = event.Actor?.Attributes?.exitCode ?? 'unknown'
     const isOom = event.Action === 'oom'
 
-    const embed = new EmbedBuilder()
-      .setTitle(isOom ? 'Container OOM Killed' : 'Container Crashed')
-      .setDescription(`**${containerName}** exited with code \`${exitCode}\``)
-      .setColor(isOom ? 0xff6b35 : 0xed4245)
-      .setTimestamp(new Date(event.time * 1000))
+    void (async () => {
+      const logs = await getContainerLogs(containerName, 10).catch(() => '(logs unavailable)')
+      const truncated = logs.length > 1000 ? `…${logs.slice(-1000)}` : logs
 
-    channel.send({ embeds: [embed] }).catch((err: Error) => console.error('Failed to send alert:', err))
+      const embed = new EmbedBuilder()
+        .setTitle(isOom ? 'Container OOM Killed' : 'Container Crashed')
+        .setDescription(`**${containerName}** exited with code \`${exitCode}\``)
+        .addFields({ name: 'Last logs', value: `\`\`\`\n${truncated}\n\`\`\`` })
+        .setColor(isOom ? 0xff6b35 : 0xed4245)
+        .setTimestamp(new Date(event.time * 1000))
+
+      await channel.send({ embeds: [embed] }).catch((err: Error) => console.error('Failed to send alert:', err))
+    })()
   })
 }
