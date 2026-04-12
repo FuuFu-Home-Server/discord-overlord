@@ -9,10 +9,28 @@ let worklogRoleId = ''
 
 const data = new SlashCommandBuilder()
   .setName('log')
-  .setDescription('Log a work entry')
-  .addStringOption(opt => opt.setName('work').setDescription('Work name / project').setRequired(true))
-  .addStringOption(opt => opt.setName('date').setDescription('Date (YYYY-MM-DD)').setRequired(true))
-  .addStringOption(opt => opt.setName('time_spent').setDescription('Time spent (e.g. 2h30m)').setRequired(true))
+  .setDescription('Log a work task')
+  .addStringOption(opt => opt.setName('summary').setDescription('Task title').setRequired(true))
+  .addStringOption(opt => opt.setName('duration').setDescription('Time spent e.g. 1h30m, 45m, 2h10m30s').setRequired(true))
+  .addStringOption(opt => opt.setName('description').setDescription('Longer details (optional)').setRequired(false))
+  .addStringOption(opt => opt.setName('date').setDescription('ISO 8601 start time (optional, defaults to now)').setRequired(false))
+
+interface WorklogResponse {
+  id: string
+  summary: string
+  description?: string
+  startDate: string
+  endDate: string
+  durationStr: string
+  timeSpent: { hours: number; minutes: number; seconds: number }
+  webhookStatus: string
+  createdAt: string
+}
+
+interface WorklogError {
+  error?: string
+  message?: string
+}
 
 async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const member = interaction.member as GuildMember
@@ -20,28 +38,42 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
     await interaction.reply({ content: 'You need the worklog role to use this command.', ephemeral: true })
     return
   }
-  const work = interaction.options.getString('work', true)
-  const date = interaction.options.getString('date', true)
-  const time_spent = interaction.options.getString('time_spent', true)
+
+  const summary = interaction.options.getString('summary', true)
+  const duration = interaction.options.getString('duration', true)
+  const description = interaction.options.getString('description') ?? undefined
+  const date = interaction.options.getString('date') ?? undefined
+
   await interaction.deferReply()
+
   try {
-    await post(apiUrl, { work, date, time_spent }, {
+    const body: Record<string, string> = { summary, duration }
+    if (description) body.description = description
+    if (date) body.date = date
+
+    const task = await post<WorklogResponse>(apiUrl, body, {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     })
+
     const embed = new EmbedBuilder()
       .setTitle('Work Logged')
       .addFields(
-        { name: 'Work', value: work, inline: true },
-        { name: 'Date', value: date, inline: true },
-        { name: 'Time Spent', value: time_spent, inline: true },
+        { name: 'Summary', value: task.summary, inline: true },
+        { name: 'Duration', value: task.durationStr, inline: true },
+        { name: 'Start', value: new Date(task.startDate).toLocaleString(), inline: true },
       )
       .setColor(0x57f287)
       .setTimestamp()
+
+    if (task.description) {
+      embed.setDescription(task.description)
+    }
+
     await interaction.editReply({ embeds: [embed] })
   } catch (err) {
-    const axiosErr = err as AxiosError<{ message?: string }>
-    const msg = axiosErr.response?.data?.message ?? (err as Error).message
+    const axiosErr = err as AxiosError<WorklogError>
+    const msg = axiosErr.response?.data?.error ?? axiosErr.response?.data?.message ?? (err as Error).message
     await interaction.editReply(`Error: ${msg}`)
   }
 }

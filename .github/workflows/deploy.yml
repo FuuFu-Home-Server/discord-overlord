@@ -36,7 +36,7 @@ jobs:
 
             cd /Users/fu/Project/discord-overlord
 
-            git pull "https://x-access-token:${GH_PAT}@github.com/jauhari-i/discord-overlord.git" master
+            git pull "https://x-access-token:${GH_PAT}@github.com/FuuFu-Home-Server/discord-overlord.git" master
 
             printf 'DISCORD_TOKEN=%s\nDISCORD_GUILD_ID=%s\nDISCORD_CLIENT_ID=%s\nDOCKER_ADMIN_ROLE_ID=%s\nWORKLOG_ROLE_ID=%s\nALERTS_CHANNEL_ID=%s\nWORKLOG_API_URL=%s\nWORKLOG_API_KEY=%s\n' \
               "$DISCORD_TOKEN" "$DISCORD_GUILD_ID" "$DISCORD_CLIENT_ID" "$DOCKER_ADMIN_ROLE_ID" "$WORKLOG_ROLE_ID" "$ALERTS_CHANNEL_ID" "$WORKLOG_API_URL" "$WORKLOG_API_KEY" > .env
