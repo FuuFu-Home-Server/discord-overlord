@@ -272,7 +272,7 @@ export async function chat(userId: string, message: string): Promise<string> {
     response = await getAI().models.generateContent({ model: MODEL, contents, config })
   }
 
-  const reply = response.text ?? ''
+  const reply = response.text?.trim() || '_(no response)_'
 
   await Promise.all([
     saveMessage(userId, 'user', message),

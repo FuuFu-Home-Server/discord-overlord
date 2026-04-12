@@ -7,6 +7,7 @@ import { startSystemReporter } from './monitors/system-reporter'
 import { startPriestessScheduler } from './monitors/priestess-scheduler'
 import { initDb } from './clients/db'
 import { chat } from './clients/priestess'
+import { initLogger, logPriestessCall, logPriestessError } from './clients/logger'
 import type { Command } from './types'
 
 // Direct imports to inject config into each command module before registry loads them
@@ -41,6 +42,7 @@ async function main(): Promise<void> {
 
   client.once(Events.ClientReady, (c) => {
     console.log(`Ready! Logged in as ${c.user.tag}`)
+    initLogger(client)
     startContainerWatcher(client, config.alertsChannelId)
     if (config.systemChannelId) {
       startSystemReporter(client, config.systemChannelId)
@@ -57,10 +59,13 @@ async function main(): Promise<void> {
 
     try {
       await message.channel.sendTyping()
+      const start = Date.now()
       const reply = await chat(message.author.id, message.content)
       await message.reply(reply)
+      await logPriestessCall(message.author.id, message.content, reply, Date.now() - start)
     } catch (err) {
       console.error('Priestess chat error:', err)
+      await logPriestessError(message.author.id, message.content, err)
     }
   })
 
