@@ -12,8 +12,8 @@ async function sendLog(content: string): Promise<void> {
   if (!discordClient) return
   try {
     const channel = await discordClient.channels.fetch(LOG_CHANNEL_ID)
-    if (channel?.isTextBased()) {
-      await channel.send(content.slice(0, 2000))
+    if (channel?.isTextBased() && 'send' in channel) {
+      await (channel as { send(content: string): Promise<unknown> }).send(content.slice(0, 2000))
     }
   } catch {
     // never let logging crash the bot
