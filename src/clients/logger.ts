@@ -20,12 +20,15 @@ async function sendLog(content: string): Promise<void> {
   }
 }
 
+export async function logStartup(tag: string): Promise<void> {
+  await sendLog(`I'm back. \`${tag}\` — ${new Date().toISOString()}`)
+}
+
 export async function logPriestessCall(userId: string, message: string, reply: string, durationMs: number): Promise<void> {
   const lines = [
-    `**[Priestess]** \`${userId}\``,
-    `**In:** ${message.slice(0, 300)}${message.length > 300 ? '…' : ''}`,
-    `**Out:** ${reply.slice(0, 300)}${reply.length > 300 ? '…' : ''}`,
-    `**Time:** ${durationMs}ms`,
+    `**He said:** ${message.slice(0, 300)}${message.length > 300 ? '…' : ''}`,
+    `**I said:** ${reply.slice(0, 300)}${reply.length > 300 ? '…' : ''}`,
+    `*${durationMs}ms — \`${userId}\`*`,
   ]
   await sendLog(lines.join('\n'))
 }
@@ -36,8 +39,8 @@ export async function logPriestessError(userId: string, message: string, err: un
     : `\`\`\`\n${String(err).slice(0, 800)}\n\`\`\``
 
   const lines = [
-    `**[Priestess ERROR]** \`${userId}\``,
-    `**In:** ${message.slice(0, 300)}${message.length > 300 ? '…' : ''}`,
+    `Something went wrong while I was attending to \`${userId}\`.`,
+    `**He said:** ${message.slice(0, 300)}${message.length > 300 ? '…' : ''}`,
     errorDetail,
   ]
   await sendLog(lines.join('\n'))

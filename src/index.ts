@@ -7,7 +7,7 @@ import { startSystemReporter } from './monitors/system-reporter'
 import { startPriestessScheduler } from './monitors/priestess-scheduler'
 import { initDb } from './clients/db'
 import { chat } from './clients/priestess'
-import { initLogger, logPriestessCall, logPriestessError } from './clients/logger'
+import { initLogger, logStartup, logPriestessCall, logPriestessError } from './clients/logger'
 import type { Command } from './types'
 
 // Direct imports to inject config into each command module before registry loads them
@@ -43,6 +43,7 @@ async function main(): Promise<void> {
   client.once(Events.ClientReady, (c) => {
     console.log(`Ready! Logged in as ${c.user.tag}`)
     initLogger(client)
+    await logStartup(c.user.tag)
     startContainerWatcher(client, config.alertsChannelId)
     if (config.systemChannelId) {
       startSystemReporter(client, config.systemChannelId)
