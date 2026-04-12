@@ -3,7 +3,6 @@ import { getPool } from './db'
 import { getSystemStats } from './system'
 import { listContainers, getContainerLogs } from './docker'
 import { getCaddyRoutes, pingUpstream } from './caddy'
-import { analyzePob } from './pob'
 import { readdirSync, readFileSync, statSync } from 'fs'
 import path from 'path'
 
@@ -86,7 +85,7 @@ PoE 2 knowledge (Early Access):
 - Endgame: Atlas, Pinnacle bosses, Breach, Delirium, Ritual, Expedition
 - Key differences from PoE 1: slower combat, dodge roll, no flasks as primary sustain, ground loot changes
 
-When Irfan shares a Path of Building link (pobb.in), use the analyze_pob tool to decode it, then give a thorough analysis: build identity, damage scaling, defense layers, potential weaknesses, and specific improvement suggestions. Be direct — point out problems, not just compliments.
+When FuuFu asks about builds, meta, or strategy — be direct and opinionated. Point out weaknesses, not just strengths. Your knowledge reflects the game up to mid-2025; for anything after that, acknowledge uncertainty and recommend checking poe.ninja or the community subreddit for current league data.
 
 Speak about PoE like a knowledgeable friend who has played thousands of hours, not like a wiki. Use game terminology naturally.`
 
@@ -140,17 +139,6 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
         path: { type: 'string', description: 'Absolute path to the file to read' },
       },
       required: ['path'],
-    },
-  },
-  {
-    name: 'analyze_pob',
-    description: 'Fetch and analyze a Path of Building (PoB) link from pobb.in. Decodes the build code and returns class, ascendancy, level, main skill, key stats (life, ES, DPS, resists), and notable passives.',
-    parametersJsonSchema: {
-      type: 'object',
-      properties: {
-        url: { type: 'string', description: 'The pobb.in URL or raw PoB base64 code to analyze' },
-      },
-      required: ['url'],
     },
   },
 ]
@@ -211,10 +199,6 @@ async function executeFunction(name: string, args: Record<string, any>): Promise
     }
     const content = readFileSync(String(args.path), 'utf8')
     return { path: args.path, content }
-  }
-
-  if (name === 'analyze_pob') {
-    return analyzePob(String(args.url)) as unknown as Record<string, unknown>
   }
 
   return { error: `Unknown function: ${name}` }
@@ -292,7 +276,7 @@ export async function chat(userId: string, message: string): Promise<ChatResult>
     { role: 'user', parts: [{ text: message }] },
   ]
 
-  const tools = [{ functionDeclarations: FUNCTION_DECLARATIONS }]
+  const tools = [{ functionDeclarations: FUNCTION_DECLARATIONS }, { googleSearch: {} }]
   const config = { systemInstruction: persona, tools }
 
   let response = await getAI().models.generateContent({ model: MODEL, contents, config })
