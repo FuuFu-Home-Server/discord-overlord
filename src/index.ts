@@ -10,17 +10,20 @@ import type { Command } from './types'
 import dockerCommand, { setAdminRoleId as setDockerAdminRoleId } from './commands/docker/index'
 import systemCommand, { setAdminRoleId as setSystemAdminRoleId } from './commands/system/index'
 import worklogCommand from './commands/worklog/index'
+import caddyCommand, { setAdminRoleId as setCaddyAdminRoleId } from './commands/caddy/index'
 
 async function main(): Promise<void> {
   const config = loadConfig()
 
   setDockerAdminRoleId(config.roles.dockerAdminRoleId)
   setSystemAdminRoleId(config.roles.dockerAdminRoleId)
+  setCaddyAdminRoleId(config.roles.dockerAdminRoleId)
   worklogCommand.setWorklogConfig(config.worklog.apiUrl, config.worklog.apiKey, config.roles.worklogRoleId)
 
   // Suppress unused-variable warnings — imports are side-effectful (module cache priming)
   void dockerCommand
   void systemCommand
+  void caddyCommand
 
   const commands = new Collection<string, Command>()
   const loaded = await loadCommands(path.join(__dirname, 'commands'))
