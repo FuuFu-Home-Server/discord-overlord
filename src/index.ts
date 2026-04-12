@@ -4,6 +4,9 @@ import { loadConfig } from './config'
 import { loadCommands, registerCommands } from './registry'
 import { startContainerWatcher } from './monitors/container-watcher'
 import { startSystemReporter } from './monitors/system-reporter'
+import { startPriestessScheduler } from './monitors/priestess-scheduler'
+import { initDb } from './clients/db'
+import { chat } from './clients/priestess'
 import type { Command } from './types'
 
 // Direct imports to inject config into each command module before registry loads them
@@ -14,6 +17,7 @@ import caddyCommand, { setAdminRoleId as setCaddyAdminRoleId } from './commands/
 
 async function main(): Promise<void> {
   const config = loadConfig()
+  await initDb()
 
   setDockerAdminRoleId(config.roles.dockerAdminRoleId)
   setSystemAdminRoleId(config.roles.dockerAdminRoleId)
@@ -33,13 +37,30 @@ async function main(): Promise<void> {
 
   await registerCommands(config, loaded)
 
-  const client = new Client({ intents: [GatewayIntentBits.Guilds] })
+  const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] })
 
   client.once(Events.ClientReady, (c) => {
     console.log(`Ready! Logged in as ${c.user.tag}`)
     startContainerWatcher(client, config.alertsChannelId)
     if (config.systemChannelId) {
       startSystemReporter(client, config.systemChannelId)
+    }
+    if (config.aiChannelId && config.aiUserId) {
+      startPriestessScheduler(client, config.aiChannelId, config.aiUserId)
+    }
+  })
+
+  client.on(Events.MessageCreate, async (message) => {
+    if (message.author.bot) return
+    if (!config.aiChannelId || message.channelId !== config.aiChannelId) return
+    if (message.guildId !== config.discord.guildId) return
+
+    try {
+      await message.channel.sendTyping()
+      const reply = await chat(message.author.id, message.content)
+      await message.reply(reply)
+    } catch (err) {
+      console.error('Priestess chat error:', err)
     }
   })
 

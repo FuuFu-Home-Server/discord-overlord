@@ -25,12 +25,16 @@ jobs:
           ALERTS_CHANNEL_ID: ${{ secrets.ALERTS_CHANNEL_ID }}
           WORKLOG_API_URL: ${{ secrets.WORKLOG_API_URL }}
           WORKLOG_API_KEY: ${{ secrets.WORKLOG_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AI_CHANNEL_ID: ${{ secrets.AI_CHANNEL_ID }}
+          AI_USER_ID: ${{ secrets.AI_USER_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_KEY }}
-          envs: DISCORD_TOKEN,DISCORD_GUILD_ID,DISCORD_CLIENT_ID,DOCKER_ADMIN_ROLE_ID,WORKLOG_ROLE_ID,ALERTS_CHANNEL_ID,WORKLOG_API_URL,WORKLOG_API_KEY,PAT_TOKEN
+          envs: DISCORD_TOKEN,DISCORD_GUILD_ID,DISCORD_CLIENT_ID,DOCKER_ADMIN_ROLE_ID,WORKLOG_ROLE_ID,ALERTS_CHANNEL_ID,WORKLOG_API_URL,WORKLOG_API_KEY,GEMINI_API_KEY,AI_CHANNEL_ID,AI_USER_ID,DATABASE_URL,PAT_TOKEN
           script: |
             export PATH=$PATH:/usr/local/bin:/opt/homebrew/bin:~/.docker/bin
 
@@ -38,7 +42,7 @@ jobs:
 
             git pull "https://x-access-token:${PAT_TOKEN}@github.com/FuuFu-Home-Server/discord-overlord.git" main
 
-            printf 'DISCORD_TOKEN=%s\nDISCORD_GUILD_ID=%s\nDISCORD_CLIENT_ID=%s\nDOCKER_ADMIN_ROLE_ID=%s\nWORKLOG_ROLE_ID=%s\nALERTS_CHANNEL_ID=%s\nWORKLOG_API_URL=%s\nWORKLOG_API_KEY=%s\n' \
-              "$DISCORD_TOKEN" "$DISCORD_GUILD_ID" "$DISCORD_CLIENT_ID" "$DOCKER_ADMIN_ROLE_ID" "$WORKLOG_ROLE_ID" "$ALERTS_CHANNEL_ID" "$WORKLOG_API_URL" "$WORKLOG_API_KEY" > .env
+            printf 'DISCORD_TOKEN=%s\nDISCORD_GUILD_ID=%s\nDISCORD_CLIENT_ID=%s\nDOCKER_ADMIN_ROLE_ID=%s\nWORKLOG_ROLE_ID=%s\nALERTS_CHANNEL_ID=%s\nWORKLOG_API_URL=%s\nWORKLOG_API_KEY=%s\nGEMINI_API_KEY=%s\nAI_CHANNEL_ID=%s\nAI_USER_ID=%s\nDATABASE_URL=%s\n' \
+              "$DISCORD_TOKEN" "$DISCORD_GUILD_ID" "$DISCORD_CLIENT_ID" "$DOCKER_ADMIN_ROLE_ID" "$WORKLOG_ROLE_ID" "$ALERTS_CHANNEL_ID" "$WORKLOG_API_URL" "$WORKLOG_API_KEY" "$GEMINI_API_KEY" "$AI_CHANNEL_ID" "$AI_USER_ID" "$DATABASE_URL" > .env
 
             docker compose up -d --build

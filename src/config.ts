@@ -10,6 +10,8 @@ export interface Config {
   }
   alertsChannelId: string
   systemChannelId: string | null
+  aiChannelId: string | null
+  aiUserId: string | null
   worklog: {
     apiUrl: string
     apiKey: string
@@ -35,6 +37,8 @@ export function loadConfig(): Config {
     },
     alertsChannelId: requireEnv('ALERTS_CHANNEL_ID'),
     systemChannelId: process.env.SYSTEM_CHANNEL_ID ?? null,
+    aiChannelId: process.env.AI_CHANNEL_ID ?? null,
+    aiUserId: process.env.AI_USER_ID ?? null,
     worklog: {
       apiUrl: requireEnv('WORKLOG_API_URL'),
       apiKey: requireEnv('WORKLOG_API_KEY'),

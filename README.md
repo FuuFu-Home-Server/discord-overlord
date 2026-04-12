@@ -1,12 +1,12 @@
 # discord-overlord
 
-A Discord bot that acts as a control plane for a personal homeserver. Manages Docker containers, reports system stats, and logs work entries — all via slash commands.
+A Discord bot that acts as a control plane for a personal homeserver. Manages Docker containers, monitors system stats, logs work entries, inspects reverse proxy routes, and hosts Priestess — a persistent AI personal assistant powered by Gemini.
 
 ## Commands
 
 ### Docker Management
 
-All Docker commands require the Docker admin role.
+Requires the Docker admin role.
 
 | Command | Description |
 |---|---|
@@ -29,19 +29,47 @@ Container names support autocomplete.
 
 Requires the Docker admin role.
 
+### Caddy Reverse Proxy
+
+| Command | Description |
+|---|---|
+| `/caddy` | List all reverse proxy routes and ping each upstream |
+
+Requires the Docker admin role.
+
 ### Work Log
 
 | Command | Description |
 |---|---|
-| `/log <work> <date> <time_spent>` | Log a work entry to your website API |
+| `/log` | Open a modal to log a work task to your dashboard API |
 
-Example: `/log discord-overlord 2026-04-12 3h30m`
+Modal fields: summary (required), duration (required, e.g. `1h30m`), start date (pre-filled to today 09:00), description (optional multiline).
 
 Requires the worklog role.
 
-## Crash Alerts
+### Priestess AI
 
-The bot monitors the Docker event stream and posts an alert embed to the configured alerts channel whenever a container crashes (non-zero exit) or is OOM killed.
+| Command | Description |
+|---|---|
+| `/ai clear` | Wipe conversation history (keeps persona) |
+| `/ai history` | Show your last 10 messages with Priestess |
+| `/ai persona` | Update Priestess's system prompt |
+
+Chat with Priestess by typing naturally in the configured AI channel — no slash commands needed.
+
+### Utility
+
+| Command | Description |
+|---|---|
+| `/ping` | Check bot latency (roundtrip + WebSocket) |
+
+## Monitors
+
+**Container crash alerts** — monitors the Docker event stream and posts an embed to the alerts channel on crash (non-zero exit) or OOM kill. Includes the last 10 log lines.
+
+**System status reporter** — posts system stats (CPU, memory, disk, uptime) to a configured channel every 15 minutes. Optional.
+
+**Priestess scheduler** — proactive check-ins on weekdays: morning briefing at 08:00 WIB, evening wrap-up at 17:00 WIB, idle check-in after 3 days of silence.
 
 ## Setup
 
@@ -50,6 +78,8 @@ The bot monitors the Docker event stream and posts an alert embed to the configu
 - Node 20+
 - Docker + Docker Compose
 - A Discord application and bot token ([discord.com/developers](https://discord.com/developers))
+- PostgreSQL database (for Priestess)
+- Google AI Studio API key (for Priestess)
 
 ### Local Development
 
@@ -63,35 +93,64 @@ npm run dev
 ### Discord Configuration
 
 1. Create a bot at [discord.com/developers](https://discord.com/developers)
-2. Enable the `bot` and `applications.commands` scopes
-3. Invite the bot to your server with those scopes
-4. Copy the bot token, application ID, and your server ID into `.env`
+2. Enable `bot` and `applications.commands` scopes
+3. Enable **Server Members Intent** and **Message Content Intent** on the Bot page
+4. Invite the bot to your server
+5. Copy bot token, application ID, and server ID into `.env`
+6. Restrict commands to specific channels via **Server Settings → Integrations → Overlord**
 
-### Deployment (Docker Compose)
-
-On your homeserver, create `~/discord-overlord/docker-compose.yml` (copy from repo) and `~/discord-overlord/.env` (fill in values):
-
-```bash
-docker compose pull
-docker compose up -d
-```
-
-### CI/CD (GitHub Actions + Tailscale)
+### Deployment (Docker Compose + GitHub Actions + Tailscale)
 
 On every push to `main`, the workflow:
-1. Builds a multi-arch image (amd64 + arm64) and pushes to GHCR
-2. Connects to your Tailscale network
-3. SSHes into your homeserver to pull and restart the container
+1. Connects to your homeserver via Tailscale
+2. SSHes in, pulls latest code, writes `.env` from secrets, rebuilds and restarts the container
 
 Required GitHub secrets:
 
+**Org-level (reusable):**
+
 | Secret | Description |
 |---|---|
-| `TS_OAUTH_CLIENT_ID` | Tailscale OAuth client ID |
-| `TS_OAUTH_CLIENT_SECRET` | Tailscale OAuth client secret |
-| `HOMESERVER_TAILSCALE_IP` | Tailscale IP of your homeserver |
-| `HOMESERVER_SSH_USER` | SSH username on the homeserver |
-| `HOMESERVER_SSH_KEY` | Private SSH key for the deploy user |
+| `TAILSCALE_AUTHKEY` | Tailscale auth key (reusable) |
+| `SERVER_IP` | Tailscale IP of your homeserver |
+| `SERVER_USER` | SSH username |
+| `SSH_KEY` | SSH private key |
+| `PAT_TOKEN` | GitHub Personal Access Token |
+
+**Repo-level:**
+
+| Secret | Description |
+|---|---|
+| `DISCORD_TOKEN` | Bot token |
+| `DISCORD_GUILD_ID` | Server ID |
+| `DISCORD_CLIENT_ID` | Application ID |
+| `DOCKER_ADMIN_ROLE_ID` | Role for docker/system/caddy commands |
+| `WORKLOG_ROLE_ID` | Role for /log command |
+| `ALERTS_CHANNEL_ID` | Channel for crash alerts |
+| `WORKLOG_API_URL` | Work log API endpoint |
+| `WORKLOG_API_KEY` | Work log API key |
+| `GEMINI_API_KEY` | Google AI Studio API key |
+| `AI_CHANNEL_ID` | Channel where Priestess listens |
+| `AI_USER_ID` | Your Discord user ID |
+| `DATABASE_URL` | PostgreSQL connection string |
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `DISCORD_TOKEN` | Yes | Bot token |
+| `DISCORD_GUILD_ID` | Yes | Your server ID |
+| `DISCORD_CLIENT_ID` | Yes | Application ID |
+| `DOCKER_ADMIN_ROLE_ID` | Yes | Role for docker/system/caddy commands |
+| `WORKLOG_ROLE_ID` | Yes | Role for /log |
+| `ALERTS_CHANNEL_ID` | Yes | Crash alert channel |
+| `WORKLOG_API_URL` | Yes | Work log API endpoint |
+| `WORKLOG_API_KEY` | Yes | Work log API key |
+| `GEMINI_API_KEY` | Yes | Gemini API key |
+| `AI_CHANNEL_ID` | Yes | Priestess chat channel |
+| `AI_USER_ID` | Yes | Your Discord user ID |
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `SYSTEM_CHANNEL_ID` | No | Channel for periodic system status posts |
 
 ## Adding New Integrations
 
@@ -99,16 +158,3 @@ Required GitHub secrets:
 2. Add any needed client in `src/clients/`
 3. Add required env vars to `.env.example` and `config.ts`
 4. Import and wire up the command in `src/index.ts`
-
-## Environment Variables
-
-| Variable | Description |
-|---|---|
-| `DISCORD_TOKEN` | Bot token |
-| `DISCORD_GUILD_ID` | Your server ID |
-| `DISCORD_CLIENT_ID` | Application ID |
-| `DOCKER_ADMIN_ROLE_ID` | Role required for docker/system commands |
-| `WORKLOG_ROLE_ID` | Role required for /log command |
-| `ALERTS_CHANNEL_ID` | Channel for crash alert notifications |
-| `WORKLOG_API_URL` | Website API endpoint for work log entries |
-| `WORKLOG_API_KEY` | API key for the work log endpoint |
