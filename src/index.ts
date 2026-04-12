@@ -3,6 +3,7 @@ import path from 'path'
 import { loadConfig } from './config'
 import { loadCommands, registerCommands } from './registry'
 import { startContainerWatcher } from './monitors/container-watcher'
+import { startSystemReporter } from './monitors/system-reporter'
 import type { Command } from './types'
 
 // Direct imports to inject config into each command module before registry loads them
@@ -34,6 +35,9 @@ async function main(): Promise<void> {
   client.once(Events.ClientReady, (c) => {
     console.log(`Ready! Logged in as ${c.user.tag}`)
     startContainerWatcher(client, config.alertsChannelId)
+    if (config.systemChannelId) {
+      startSystemReporter(client, config.systemChannelId)
+    }
   })
 
   client.on(Events.InteractionCreate, async (interaction) => {
