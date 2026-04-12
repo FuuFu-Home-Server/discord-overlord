@@ -43,7 +43,7 @@ async function main(): Promise<void> {
   client.once(Events.ClientReady, (c) => {
     console.log(`Ready! Logged in as ${c.user.tag}`)
     initLogger(client)
-    await logStartup(c.user.tag)
+    logStartup(c.user.tag).catch(console.error)
     startContainerWatcher(client, config.alertsChannelId)
     if (config.systemChannelId) {
       startSystemReporter(client, config.systemChannelId)
