@@ -1,8 +1,20 @@
 import axios from 'axios'
-import { inflateRaw } from 'zlib'
+import { inflate, inflateRaw, gunzip } from 'zlib'
 import { promisify } from 'util'
 
-const inflate = promisify(inflateRaw)
+const tryInflate = promisify(inflate)
+const tryInflateRaw = promisify(inflateRaw)
+const tryGunzip = promisify(gunzip)
+
+async function decompress(buf: Buffer): Promise<Buffer> {
+  const attempts = [tryInflate, tryInflateRaw, tryGunzip]
+  for (const fn of attempts) {
+    try {
+      return await fn(buf)
+    } catch { /* try next */ }
+  }
+  throw new Error('Failed to decompress PoB data — not a valid zlib/deflate/gzip stream')
+}
 
 function extractAttr(xml: string, tag: string, attr: string): string {
   const match = xml.match(new RegExp(`<${tag}[^>]*\\s${attr}="([^"]*)"`, 'i'))
@@ -74,22 +86,48 @@ async function fetchBase64(input: string): Promise<string> {
   const url = new URL(input)
   const code = url.pathname.replace(/^\//, '').split('/')[0]
 
+  // pobb.in API endpoint
   try {
-    const { data } = await axios.get(`https://pobb.in/${code}/raw`, { timeout: 8000, responseType: 'text' })
-    if (typeof data === 'string' && data.trim().length > 0) return data.trim()
+    const { data } = await axios.get(`https://pobb.in/api/get?code=${code}`, {
+      timeout: 8000,
+      headers: { Accept: 'application/json' },
+    })
+    if (data?.encoded) return String(data.encoded)
+    if (data?.data) return String(data.data)
   } catch { /* fall through */ }
 
+  // raw text endpoint
+  try {
+    const { data } = await axios.get(`https://pobb.in/${code}/raw`, {
+      timeout: 8000,
+      responseType: 'text',
+      headers: { Accept: 'text/plain' },
+    })
+    const text = String(data).trim()
+    if (text.length > 20 && !text.startsWith('<')) return text
+  } catch { /* fall through */ }
+
+  // scrape HTML
   const { data: html } = await axios.get(`https://pobb.in/${code}`, { timeout: 8000 })
-  const match = String(html).match(/(?:buildCode|build_code|raw)['":\s]+['"]([A-Za-z0-9+/=_-]{20,})['"]/)
-  if (match) return match[1]
+  const htmlStr = String(html)
+  const patterns = [
+    /(?:buildCode|build_code|encoded|pasteData)['":\s]+['"]([A-Za-z0-9+/=_-]{50,})['"]/,
+    /<textarea[^>]*>([A-Za-z0-9+/=_-]{50,})<\/textarea>/,
+    /value="([A-Za-z0-9+/=_-]{100,})"/,
+  ]
+  for (const pattern of patterns) {
+    const match = htmlStr.match(pattern)
+    if (match) return match[1]
+  }
 
   throw new Error(`Could not extract build code from ${input}`)
 }
 
 export async function analyzePob(input: string): Promise<PoBSummary> {
   const base64 = await fetchBase64(input)
-  const buf = Buffer.from(base64.replace(/-/g, '+').replace(/_/g, '/'), 'base64')
-  const xml = (await inflate(buf)).toString('utf8')
+  const normalized = base64.replace(/-/g, '+').replace(/_/g, '/').replace(/\s/g, '')
+  const buf = Buffer.from(normalized, 'base64')
+  const xml = (await decompress(buf)).toString('utf8')
 
   const buildClass = extractAttr(xml, 'Build', 'className') || extractAttr(xml, 'Build', 'class')
   const ascendancy = extractAttr(xml, 'Build', 'ascendClassName')
