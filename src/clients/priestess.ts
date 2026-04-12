@@ -3,6 +3,18 @@ import { getPool } from './db'
 import { getSystemStats } from './system'
 import { listContainers, getContainerLogs } from './docker'
 import { getCaddyRoutes, pingUpstream } from './caddy'
+import { readdirSync, readFileSync, statSync } from 'fs'
+import path from 'path'
+
+const ALLOWED_ROOTS = ['/Users/fu/Server Stuff', '/Users/fu/Project']
+const MAX_FILE_SIZE = 50 * 1024
+
+function assertAllowed(target: string): void {
+  const resolved = path.resolve(target)
+  if (!ALLOWED_ROOTS.some(root => resolved === root || resolved.startsWith(root + path.sep))) {
+    throw new Error(`Access denied: path is outside allowed directories`)
+  }
+}
 
 const MODEL = 'gemini-2.5-flash'
 const HISTORY_LIMIT = 50
@@ -52,6 +64,28 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     description: 'List all Caddy reverse proxy routes and ping each upstream to check if services are reachable.',
     parametersJsonSchema: { type: 'object', properties: {} },
   },
+  {
+    name: 'list_files',
+    description: 'List files and folders in a directory. Only allowed under /Users/fu/Server Stuff and /Users/fu/Project.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absolute path to the directory to list' },
+      },
+      required: ['path'],
+    },
+  },
+  {
+    name: 'read_file',
+    description: 'Read the contents of a text file. Only allowed under /Users/fu/Server Stuff and /Users/fu/Project. Capped at 50KB.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absolute path to the file to read' },
+      },
+      required: ['path'],
+    },
+  },
 ]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,6 +124,26 @@ async function executeFunction(name: string, args: Record<string, any>): Promise
       })
     )
     return { routes: results }
+  }
+
+  if (name === 'list_files') {
+    assertAllowed(String(args.path))
+    const entries = readdirSync(String(args.path)).map(name => {
+      const full = path.join(String(args.path), name)
+      const stat = statSync(full)
+      return { name, type: stat.isDirectory() ? 'directory' : 'file', size: stat.size }
+    })
+    return { path: args.path, entries }
+  }
+
+  if (name === 'read_file') {
+    assertAllowed(String(args.path))
+    const stat = statSync(String(args.path))
+    if (stat.size > MAX_FILE_SIZE) {
+      return { error: `File too large (${(stat.size / 1024).toFixed(0)}KB). Max is 50KB.` }
+    }
+    const content = readFileSync(String(args.path), 'utf8')
+    return { path: args.path, content }
   }
 
   return { error: `Unknown function: ${name}` }
