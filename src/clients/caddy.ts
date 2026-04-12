@@ -44,7 +44,8 @@ export async function getCaddyRoutes(): Promise<CaddyRoute[]> {
 }
 
 export async function pingUpstream(dial: string): Promise<{ ok: boolean; ms: number }> {
-  const url = dial.startsWith('http') ? dial : `http://${dial}`
+  const normalized = dial.replace(/^(https?:\/\/)?localhost/, '$1host.docker.internal')
+  const url = normalized.startsWith('http') ? normalized : `http://${normalized}`
   const start = Date.now()
   try {
     await axios.head(url, { timeout: 3000 })

@@ -22,7 +22,7 @@ async function sendLog(content: string): Promise<void> {
 
 export async function logPriestessCall(userId: string, message: string, reply: string, durationMs: number): Promise<void> {
   const lines = [
-    `**[Priestess]** <@${userId}>`,
+    `**[Priestess]** \`${userId}\``,
     `**In:** ${message.slice(0, 300)}${message.length > 300 ? '…' : ''}`,
     `**Out:** ${reply.slice(0, 300)}${reply.length > 300 ? '…' : ''}`,
     `**Time:** ${durationMs}ms`,
@@ -36,7 +36,7 @@ export async function logPriestessError(userId: string, message: string, err: un
     : `\`\`\`\n${String(err).slice(0, 800)}\n\`\`\``
 
   const lines = [
-    `**[Priestess ERROR]** <@${userId}>`,
+    `**[Priestess ERROR]** \`${userId}\``,
     `**In:** ${message.slice(0, 300)}${message.length > 300 ? '…' : ''}`,
     errorDetail,
   ]
