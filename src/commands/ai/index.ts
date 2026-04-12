@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder } from 'discord.js'
 import type { Command } from '../../types'
 import { clearHistory, getHistory, setPersona, DEFAULT_PERSONA } from '../../clients/priestess'
+import { getPool } from '../../clients/db'
 import type { ModalSubmitInteraction } from 'discord.js'
 
 const MODAL_ID = 'ai'
@@ -11,6 +12,7 @@ const data = new SlashCommandBuilder()
   .addSubcommand(sub => sub.setName('clear').setDescription('Clear your conversation history'))
   .addSubcommand(sub => sub.setName('history').setDescription('Show your recent conversation'))
   .addSubcommand(sub => sub.setName('persona').setDescription('Update Priestess system prompt'))
+  .addSubcommand(sub => sub.setName('usage').setDescription('Show your Priestess token usage stats'))
 
 async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
   const sub = interaction.options.getSubcommand()
@@ -37,6 +39,35 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
       .setTitle('Recent Conversation')
       .setDescription(lines.join('\n\n'))
       .setColor(0x9b59b6)
+    await interaction.editReply({ embeds: [embed] })
+    return
+  }
+
+  if (sub === 'usage') {
+    await interaction.deferReply({ ephemeral: true })
+    const db = getPool()
+    const result = await db.query(`
+      SELECT
+        COUNT(*)::int AS calls,
+        COALESCE(SUM(prompt_tokens), 0)::int AS prompt_tokens,
+        COALESCE(SUM(output_tokens), 0)::int AS output_tokens,
+        COALESCE(SUM(total_tokens), 0)::int AS total_tokens,
+        COALESCE(SUM(total_tokens) FILTER (WHERE created_at >= date_trunc('day', NOW())), 0)::int AS today_tokens,
+        COALESCE(SUM(total_tokens) FILTER (WHERE created_at >= date_trunc('month', NOW())), 0)::int AS month_tokens
+      FROM ai_token_usage
+      WHERE user_id = $1
+    `, [interaction.user.id])
+    const row = result.rows[0]
+    const embed = new EmbedBuilder()
+      .setTitle('Priestess Token Usage')
+      .setColor(0x9b59b6)
+      .addFields(
+        { name: 'Today', value: `${row.today_tokens.toLocaleString()} tokens`, inline: true },
+        { name: 'This Month', value: `${row.month_tokens.toLocaleString()} tokens`, inline: true },
+        { name: 'All Time', value: `${row.total_tokens.toLocaleString()} tokens`, inline: true },
+        { name: 'Total Calls', value: `${row.calls.toLocaleString()}`, inline: true },
+        { name: 'Input / Output', value: `${row.prompt_tokens.toLocaleString()} / ${row.output_tokens.toLocaleString()}`, inline: true },
+      )
     await interaction.editReply({ embeds: [embed] })
     return
   }

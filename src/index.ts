@@ -61,9 +61,9 @@ async function main(): Promise<void> {
     try {
       await message.channel.sendTyping()
       const start = Date.now()
-      const reply = await chat(message.author.id, message.content)
-      await message.reply(reply)
-      await logPriestessCall(message.author.id, message.content, reply, Date.now() - start)
+      const result = await chat(message.author.id, message.content)
+      await message.reply(result.reply)
+      await logPriestessCall(message.author.id, message.content, result, Date.now() - start)
     } catch (err) {
       console.error('Priestess chat error:', err)
       await logPriestessError(message.author.id, message.content, err)

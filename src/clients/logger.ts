@@ -1,4 +1,5 @@
 import type { Client } from 'discord.js'
+import type { ChatResult } from './priestess'
 
 const LOG_CHANNEL_ID = '1492821933795049472'
 
@@ -24,11 +25,11 @@ export async function logStartup(tag: string): Promise<void> {
   await sendLog(`I'm back. \`${tag}\` — ${new Date().toISOString()}`)
 }
 
-export async function logPriestessCall(userId: string, message: string, reply: string, durationMs: number): Promise<void> {
+export async function logPriestessCall(userId: string, message: string, result: ChatResult, durationMs: number): Promise<void> {
   const lines = [
     `**He said:** ${message.slice(0, 300)}${message.length > 300 ? '…' : ''}`,
-    `**I said:** ${reply.slice(0, 300)}${reply.length > 300 ? '…' : ''}`,
-    `*${durationMs}ms — \`${userId}\`*`,
+    `**I said:** ${result.reply.slice(0, 300)}${result.reply.length > 300 ? '…' : ''}`,
+    `*${durationMs}ms · ${result.totalTokens} tokens (${result.promptTokens} in / ${result.outputTokens} out) — \`${userId}\`*`,
   ]
   await sendLog(lines.join('\n'))
 }

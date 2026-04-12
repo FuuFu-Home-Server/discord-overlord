@@ -237,7 +237,14 @@ export async function getLastMessageTime(userId: string): Promise<Date | null> {
   return result.rows[0]?.created_at ?? null
 }
 
-export async function chat(userId: string, message: string): Promise<string> {
+export interface ChatResult {
+  reply: string
+  promptTokens: number
+  outputTokens: number
+  totalTokens: number
+}
+
+export async function chat(userId: string, message: string): Promise<ChatResult> {
   const [persona, history] = await Promise.all([getPersona(userId), getHistory(userId)])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -253,6 +260,9 @@ export async function chat(userId: string, message: string): Promise<string> {
   const config = { systemInstruction: persona, tools }
 
   let response = await getAI().models.generateContent({ model: MODEL, contents, config })
+
+  let promptTokens = response.usageMetadata?.promptTokenCount ?? 0
+  let outputTokens = response.usageMetadata?.candidatesTokenCount ?? 0
 
   while (response.functionCalls && response.functionCalls.length > 0) {
     const calls = response.functionCalls
@@ -270,14 +280,22 @@ export async function chat(userId: string, message: string): Promise<string> {
     contents.push({ role: 'user', parts: results.map(r => ({ functionResponse: r })) })
 
     response = await getAI().models.generateContent({ model: MODEL, contents, config })
+    promptTokens += response.usageMetadata?.promptTokenCount ?? 0
+    outputTokens += response.usageMetadata?.candidatesTokenCount ?? 0
   }
 
   const reply = response.text?.trim() || '_(no response)_'
+  const totalTokens = promptTokens + outputTokens
 
+  const db = getPool()
   await Promise.all([
     saveMessage(userId, 'user', message),
     saveMessage(userId, 'model', reply),
+    db.query(
+      'INSERT INTO ai_token_usage (user_id, prompt_tokens, output_tokens, total_tokens) VALUES ($1, $2, $3, $4)',
+      [userId, promptTokens, outputTokens, totalTokens]
+    ),
   ])
 
-  return reply
+  return { reply, promptTokens, outputTokens, totalTokens }
 }

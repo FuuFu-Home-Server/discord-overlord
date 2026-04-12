@@ -28,4 +28,15 @@ export async function initDb(): Promise<void> {
     )
   `)
   await db.query(`CREATE INDEX IF NOT EXISTS ai_messages_user_id_idx ON ai_messages (user_id, created_at DESC)`)
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS ai_token_usage (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      prompt_tokens INT NOT NULL DEFAULT 0,
+      output_tokens INT NOT NULL DEFAULT 0,
+      total_tokens INT NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+  await db.query(`CREATE INDEX IF NOT EXISTS ai_token_usage_user_id_idx ON ai_token_usage (user_id, created_at DESC)`)
 }
