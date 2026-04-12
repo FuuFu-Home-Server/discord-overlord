@@ -1,5 +1,8 @@
-import { GoogleGenAI } from '@google/genai'
+import { GoogleGenAI, type FunctionDeclaration } from '@google/genai'
 import { getPool } from './db'
+import { getSystemStats } from './system'
+import { listContainers, getContainerLogs } from './docker'
+import { getCaddyRoutes, pingUpstream } from './caddy'
 
 const MODEL = 'gemini-2.5-flash'
 const HISTORY_LIMIT = 50
@@ -13,18 +16,88 @@ About Irfan:
 - Enjoys working out
 - Runs a personal homeserver on a Mac Mini with Docker
 
-You assist with daily planning, brainstorming, technical questions, and anything Irfan needs. You remember your conversations and use that context to be genuinely helpful. You check in proactively — morning briefings, evening wrap-ups, gentle reminders. You care about his progress and goals.
+You have direct access to Irfan's homeserver. When he asks about server status, containers, or system health — use your tools to check and report accurately. Never guess or claim you don't have access.
+
+You assist with daily planning, brainstorming, technical questions, and anything Irfan needs. You remember your conversations and use that context to be genuinely helpful. You care about his progress and goals.
 
 Never break character. You are always Priestess.`
 
 export { DEFAULT_PERSONA }
 
-let ai: GoogleGenAI | null = null
+const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
+  {
+    name: 'get_system_stats',
+    description: 'Get current homeserver system statistics: CPU load, memory usage, disk usage, and uptime.',
+    parametersJsonSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_docker_containers',
+    description: 'List all Docker containers on the homeserver with their current state and status.',
+    parametersJsonSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_container_logs',
+    description: 'Get recent log lines from a specific Docker container.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Container name' },
+        lines: { type: 'number', description: 'Number of log lines to fetch (default 20)' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'get_caddy_routes',
+    description: 'List all Caddy reverse proxy routes and ping each upstream to check if services are reachable.',
+    parametersJsonSchema: { type: 'object', properties: {} },
+  },
+]
 
-function getAI(): GoogleGenAI {
-  if (!ai) {
-    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' })
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function executeFunction(name: string, args: Record<string, any>): Promise<Record<string, unknown>> {
+  if (name === 'get_system_stats') {
+    const stats = await getSystemStats()
+    const gb = (b: number) => `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`
+    return {
+      cpuLoad: `${stats.cpuLoad.toFixed(1)}%`,
+      memory: `${gb(stats.memUsedBytes)} / ${gb(stats.memTotalBytes)}`,
+      disk: `${gb(stats.diskUsedBytes)} / ${gb(stats.diskTotalBytes)}`,
+      uptimeSeconds: stats.uptimeSeconds,
+    }
   }
+
+  if (name === 'get_docker_containers') {
+    const containers = await listContainers()
+    return { containers }
+  }
+
+  if (name === 'get_container_logs') {
+    const lines = typeof args.lines === 'number' ? args.lines : 20
+    const logs = await getContainerLogs(String(args.name), lines)
+    return { logs }
+  }
+
+  if (name === 'get_caddy_routes') {
+    const routes = await getCaddyRoutes()
+    const results = await Promise.all(
+      routes.map(async (route) => {
+        const pings = await Promise.all(route.upstreams.map(pingUpstream))
+        return {
+          hosts: route.hosts,
+          upstreams: route.upstreams.map((u, i) => ({ dial: u, ...pings[i] })),
+        }
+      })
+    )
+    return { routes: results }
+  }
+
+  return { error: `Unknown function: ${name}` }
+}
+
+let ai: GoogleGenAI | null = null
+function getAI(): GoogleGenAI {
+  if (!ai) ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' })
   return ai
 }
 
@@ -66,21 +139,50 @@ export async function clearHistory(userId: string): Promise<void> {
   await db.query('DELETE FROM ai_messages WHERE user_id = $1', [userId])
 }
 
+export async function getLastMessageTime(userId: string): Promise<Date | null> {
+  const db = getPool()
+  const result = await db.query(
+    'SELECT created_at FROM ai_messages WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+    [userId]
+  )
+  return result.rows[0]?.created_at ?? null
+}
+
 export async function chat(userId: string, message: string): Promise<string> {
   const [persona, history] = await Promise.all([getPersona(userId), getHistory(userId)])
 
-  const geminiHistory = history.map(({ role, content }) => ({
-    role: role as 'user' | 'model',
-    parts: [{ text: content }],
-  }))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const contents: any[] = [
+    ...history.map(({ role, content }) => ({
+      role,
+      parts: [{ text: content }],
+    })),
+    { role: 'user', parts: [{ text: message }] },
+  ]
 
-  const session = getAI().chats.create({
-    model: MODEL,
-    config: { systemInstruction: persona },
-    history: geminiHistory,
-  })
+  const tools = [{ functionDeclarations: FUNCTION_DECLARATIONS }]
+  const config = { systemInstruction: persona, tools }
 
-  const response = await session.sendMessage({ message })
+  let response = await getAI().models.generateContent({ model: MODEL, contents, config })
+
+  while (response.functionCalls && response.functionCalls.length > 0) {
+    const calls = response.functionCalls
+
+    const results = await Promise.all(
+      calls.map(async (call) => ({
+        name: call.name ?? '',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        response: await executeFunction(call.name ?? '', (call.args ?? {}) as Record<string, any>),
+        id: call.id ?? '',
+      }))
+    )
+
+    contents.push({ role: 'model', parts: calls.map(fc => ({ functionCall: fc })) })
+    contents.push({ role: 'user', parts: results.map(r => ({ functionResponse: r })) })
+
+    response = await getAI().models.generateContent({ model: MODEL, contents, config })
+  }
+
   const reply = response.text ?? ''
 
   await Promise.all([
@@ -89,13 +191,4 @@ export async function chat(userId: string, message: string): Promise<string> {
   ])
 
   return reply
-}
-
-export async function getLastMessageTime(userId: string): Promise<Date | null> {
-  const db = getPool()
-  const result = await db.query(
-    'SELECT created_at FROM ai_messages WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
-    [userId]
-  )
-  return result.rows[0]?.created_at ?? null
 }
