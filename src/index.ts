@@ -37,6 +37,8 @@ async function main(): Promise<void> {
   })
 
   client.on(Events.InteractionCreate, async (interaction) => {
+    if (interaction.guildId !== config.discord.guildId) return
+
     if (interaction.isAutocomplete()) {
       const command = commands.get(interaction.commandName)
       if (command?.autocomplete) {
@@ -50,8 +52,26 @@ async function main(): Promise<void> {
       return
     }
 
+    if (interaction.isModalSubmit()) {
+      const commandName = interaction.customId.split(':')[0]
+      const command = commands.get(commandName)
+      if (command?.modalSubmit) {
+        try {
+          await command.modalSubmit(interaction)
+        } catch (err) {
+          console.error('Modal submit error:', err)
+          const payload = { content: 'An unexpected error occurred.', ephemeral: true }
+          if (interaction.replied || interaction.deferred) {
+            await interaction.followUp(payload)
+          } else {
+            await interaction.reply(payload)
+          }
+        }
+      }
+      return
+    }
+
     if (!interaction.isChatInputCommand()) return
-    if (interaction.guildId !== config.discord.guildId) return
 
     const command = commands.get(interaction.commandName)
     if (!command) return
