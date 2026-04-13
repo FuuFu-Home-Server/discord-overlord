@@ -16,6 +16,8 @@ export interface Config {
     apiUrl: string
     apiKey: string
   }
+  webhookPort: number
+  n8nWebhookSecret: string
 }
 
 function requireEnv(key: string): string {
@@ -43,5 +45,7 @@ export function loadConfig(): Config {
       apiUrl: requireEnv('WORKLOG_API_URL'),
       apiKey: requireEnv('WORKLOG_API_KEY'),
     },
+    webhookPort: parseInt(process.env.WEBHOOK_PORT ?? '3001', 10),
+    n8nWebhookSecret: requireEnv('N8N_WEBHOOK_SECRET'),
   }
 }
