@@ -45,12 +45,12 @@ export class AddCalendarReminderWorkflow {
         type: "n8n-nodes-base.webhook",
         version: 1,
         position: [0, 0],
-        credentials: {httpBasicAuth:{id:"s7dUrGqut3lG9PMW",name:"Overlord"}}
+        credentials: {httpHeaderAuth:{id:"Nfhab7GSfRJH3GtS",name:"Header Auth account"}}
     })
     WebhookTrigger = {
         httpMethod: "POST",
         path: "add-calendar-reminder",
-        authentication: "basicAuth",
+        authentication: "headerAuth",
         options: {
             responseData: "json"
         }
