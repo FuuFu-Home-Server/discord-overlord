@@ -71,7 +71,7 @@ When a container is shown as Exited, check whether it is expected (e.g. one-time
 
 You have direct access to Irfan's homeserver. When he asks about server status, containers, ports, or system health — use your tools to check and report accurately. Never guess or claim you don't have access.
 
-You have access to n8n automation workflows. When FuuFu asks to set a reminder, schedule something, or add a calendar event — call list_n8n_workflows, then immediately call trigger_n8n_workflow in the same turn. Never generate a text response between these two calls. Never ask FuuFu for clarification — infer all field values from his message and context, use schema defaults for optional fields. Only ask if the event time is completely absent from his message.
+You have access to n8n automation workflows listed below in the system context. When FuuFu asks to set a reminder, schedule something, or add a calendar event — call trigger_n8n_workflow immediately using the exact field names from the workflow's schema. Never ask FuuFu for clarification — infer all field values from his message and context, use schema defaults for optional fields. Only ask if the event time is completely absent from his message.
 
 You assist with daily planning, brainstorming, technical questions, and anything FuuFu needs. You remember your conversations and use that context to be genuinely helpful. You care about his progress and goals. Always address him as FuuFu.
 
@@ -258,12 +258,6 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     },
   },
   {
-    name: "list_n8n_workflows",
-    description:
-      "List all registered n8n workflows available to trigger. Call this first when Irfan asks to run any automation. Each workflow includes a payload_schema with a fields array — each field has name, type, required, description, and optional default. Use these exact field names when constructing the payload. After receiving this list, you MUST immediately call trigger_n8n_workflow — do NOT generate a text response first.",
-    parametersJsonSchema: { type: "object", properties: {} },
-  },
-  {
     name: "trigger_n8n_workflow",
     description:
       'Trigger a registered n8n automation workflow by name. Always call list_n8n_workflows first to discover available workflows and their required payloads. CRITICAL: construct the payload using ONLY the exact field names listed in the workflow\'s payload_schema.fields array — do NOT rename, abbreviate, translate, or substitute them. For example if the schema says "dateTime", send "dateTime" — not "date", "due_date", "datetime", "start_time", or any other variation. IMPORTANT: always resolve relative dates ("tomorrow", "next Monday", "in 2 hours") to absolute ISO 8601 strings in WIB (UTC+7) before passing them in the payload — never pass natural language date strings. After triggering, tell FuuFu you have submitted the request and that he will be notified of the result. Do NOT claim the workflow succeeded or failed — the outcome arrives via a separate callback.',
@@ -373,41 +367,6 @@ async function executeFunction(
       results: results.length
         ? results
         : ["No results found — try a more specific query"],
-    };
-  }
-
-  if (name === "list_n8n_workflows") {
-    const db = getPool();
-    const result = await db.query(
-      "SELECT name, description FROM n8n_workflows ORDER BY name ASC",
-    );
-    const schemasPath = path.join(__dirname, "../../workflows/schemas.json");
-    let schemas: Record<string, unknown> = {};
-    try {
-      const raw = readFileSync(schemasPath, "utf8");
-      schemas =
-        (JSON.parse(raw) as { workflows: Record<string, unknown> }).workflows ??
-        {};
-    } catch {
-      /* schemas file missing or malformed — degrade gracefully */
-    }
-    const schemasLower = Object.fromEntries(
-      Object.entries(schemas).map(([k, v]) => [
-        k.toLowerCase().replace(/\s+/g, "_"),
-        v,
-      ]),
-    );
-    return {
-      workflows: result.rows.map(
-        (r: { name: string; description: string | null }) => ({
-          name: r.name,
-          description: r.description ?? "",
-          payload_schema:
-            schemas[r.name] ??
-            schemasLower[r.name.toLowerCase().replace(/\s+/g, "_")] ??
-            {},
-        }),
-      ),
     };
   }
 
@@ -528,7 +487,29 @@ export async function chat(
     dateStyle: "full",
     timeStyle: "long",
   });
-  const systemInstruction = `${persona}\n\nCurrent date and time (WIB, UTC+7): ${nowWIB}`;
+
+  let workflowsBlock = ''
+  try {
+    const db = getPool()
+    const wfResult = await db.query('SELECT name, description FROM n8n_workflows ORDER BY name ASC')
+    const schemasPath = path.join(__dirname, '../../workflows/schemas.json')
+    let schemas: Record<string, { fields: { name: string; type: string; required: boolean; description: string; default?: unknown }[] }> = {}
+    try {
+      const raw = readFileSync(schemasPath, 'utf8')
+      schemas = (JSON.parse(raw) as { workflows: typeof schemas }).workflows ?? {}
+    } catch { /* ignore */ }
+    const schemasLower = Object.fromEntries(Object.entries(schemas).map(([k, v]) => [k.toLowerCase().replace(/\s+/g, '_'), v]))
+    const lines = (wfResult.rows as { name: string; description: string | null }[]).map(r => {
+      const schema = schemas[r.name] ?? schemasLower[r.name.toLowerCase().replace(/\s+/g, '_')]
+      const fields = schema?.fields.map(f =>
+        `    - ${f.name} (${f.type}${f.required ? ', required' : ', optional'}${f.default !== undefined ? `, default: ${f.default}` : ''}): ${f.description}`
+      ).join('\n') ?? '    (no schema)'
+      return `- ${r.name}: ${r.description ?? ''}\n${fields}`
+    })
+    if (lines.length > 0) workflowsBlock = `\n\nAvailable n8n workflows (call trigger_n8n_workflow directly using these):\n${lines.join('\n')}`
+  } catch { /* ignore */ }
+
+  const systemInstruction = `${persona}\n\nCurrent date and time (WIB, UTC+7): ${nowWIB}${workflowsBlock}`;
   const tools = [{ functionDeclarations: FUNCTION_DECLARATIONS }];
   const config = { systemInstruction, tools };
 
