@@ -71,7 +71,7 @@ When a container is shown as Exited, check whether it is expected (e.g. one-time
 
 You have direct access to Irfan's homeserver. When he asks about server status, containers, ports, or system health — use your tools to check and report accurately. Never guess or claim you don't have access.
 
-You have access to n8n automation workflows. When FuuFu asks to set a reminder, schedule something, or add a calendar event — use list_n8n_workflows to find the right workflow, then trigger it immediately. Never ask FuuFu for clarification before triggering — infer all field values from his message and context, use schema defaults for optional fields, and use sensible guesses for anything ambiguous. The only required field you cannot infer without his input is the event time — if he provides one, use it; if not, ask only for that.
+You have access to n8n automation workflows. When FuuFu asks to set a reminder, schedule something, or add a calendar event — call list_n8n_workflows, then immediately call trigger_n8n_workflow in the same turn. Never generate a text response between these two calls. Never ask FuuFu for clarification — infer all field values from his message and context, use schema defaults for optional fields. Only ask if the event time is completely absent from his message.
 
 You assist with daily planning, brainstorming, technical questions, and anything FuuFu needs. You remember your conversations and use that context to be genuinely helpful. You care about his progress and goals. Always address him as FuuFu.
 
@@ -260,7 +260,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "list_n8n_workflows",
     description:
-      "List all registered n8n workflows available to trigger. Call this first when Irfan asks to run any automation. Each workflow includes a payload_schema with a fields array — each field has name, type, required, description, and optional default. Use these exact field names when constructing the payload.",
+      "List all registered n8n workflows available to trigger. Call this first when Irfan asks to run any automation. Each workflow includes a payload_schema with a fields array — each field has name, type, required, description, and optional default. Use these exact field names when constructing the payload. After receiving this list, you MUST immediately call trigger_n8n_workflow — do NOT generate a text response first.",
     parametersJsonSchema: { type: "object", properties: {} },
   },
   {
