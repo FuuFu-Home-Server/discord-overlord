@@ -61,6 +61,8 @@ async function main(): Promise<void> {
 
   const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] })
 
+  let webhookServer: ReturnType<typeof startWebhookServer> | null = null
+
   client.once(Events.ClientReady, (c) => {
     console.log(`Ready! Logged in as ${c.user.tag}`)
     initLogger(client)
@@ -72,14 +74,14 @@ async function main(): Promise<void> {
     if (config.aiChannelId && config.aiUserId) {
       startPriestessScheduler(client, config.aiChannelId, config.aiUserId)
     }
-    const webhookServer = startWebhookServer(client, config)
+    webhookServer = startWebhookServer(client, config)
+  })
 
-    process.on('SIGTERM', () => {
-      console.log('Received SIGTERM, shutting down.')
-      webhookServer.close()
-      client.destroy()
-      process.exit(0)
-    })
+  process.on('SIGTERM', () => {
+    console.log('Received SIGTERM, shutting down.')
+    webhookServer?.close()
+    client.destroy()
+    process.exit(0)
   })
 
   client.on(Events.MessageCreate, async (message) => {
