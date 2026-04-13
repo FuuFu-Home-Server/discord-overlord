@@ -7,5 +7,3 @@ services:
       - /Users/fu/Server Stuff:/Users/fu/Server Stuff:ro
       - /Users/fu/Project:/Users/fu/Project:ro
     env_file: .env
-    ports:
-      - "${WEBHOOK_PORT:-3001}:${WEBHOOK_PORT:-3001}"
