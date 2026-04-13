@@ -567,3 +567,12 @@ export async function chat(
 
   return { reply, promptTokens, outputTokens, totalTokens };
 }
+
+export async function notify(userId: string, message: string): Promise<string> {
+  const persona = await getPersona(userId)
+  const nowWIB = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Jakarta', dateStyle: 'full', timeStyle: 'long' })
+  const systemInstruction = `${persona}\n\nCurrent date and time (WIB, UTC+7): ${nowWIB}`
+  const contents = [{ role: 'user', parts: [{ text: message }] }]
+  const response = await getAI().models.generateContent({ model: MODEL, contents, config: { systemInstruction } })
+  return response.text?.trim() || '_(no response)_'
+}
