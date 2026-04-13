@@ -77,7 +77,9 @@ return [{ json: { query, vals } }];`,
   RunUpdate = {
     operation: 'executeQuery',
     query: '={{ $json.query }}',
-    options: {},
+    options: {
+      queryParams: '={{ JSON.stringify($json.vals) }}',
+    },
   };
 
   @node({
