@@ -9,6 +9,7 @@ const REQUIRED_VARS = [
   'ALERTS_CHANNEL_ID',
   'WORKLOG_API_URL',
   'WORKLOG_API_KEY',
+  'N8N_WEBHOOK_SECRET',
 ]
 
 const FULL_ENV: Record<string, string> = {
@@ -20,6 +21,7 @@ const FULL_ENV: Record<string, string> = {
   ALERTS_CHANNEL_ID: 'alertchan',
   WORKLOG_API_URL: 'https://example.com/api',
   WORKLOG_API_KEY: 'secret',
+  N8N_WEBHOOK_SECRET: 'testsecret',
 }
 
 describe('loadConfig', () => {
@@ -45,6 +47,8 @@ describe('loadConfig', () => {
     expect(config.alertsChannelId).toBe('alertchan')
     expect(config.worklog.apiUrl).toBe('https://example.com/api')
     expect(config.worklog.apiKey).toBe('secret')
+    expect(config.n8nWebhookSecret).toBe('testsecret')
+    expect(config.webhookPort).toBe(3001)
   })
 
   for (const key of REQUIRED_VARS) {

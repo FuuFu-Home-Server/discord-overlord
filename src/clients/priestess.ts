@@ -6,6 +6,7 @@ import { getCaddyRoutes, pingUpstream } from './caddy'
 import { readdirSync, readFileSync, statSync } from 'fs'
 import axios from 'axios'
 import path from 'path'
+import { executeTriggerWorkflow } from './n8n-executor'
 
 const ALLOWED_ROOTS = ['/Users/fu/Server Stuff', '/Users/fu/Project']
 const MAX_FILE_SIZE = 50 * 1024
@@ -235,6 +236,18 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: ['query'],
     },
   },
+  {
+    name: 'trigger_n8n_workflow',
+    description: 'Trigger a registered n8n automation workflow by name. Use when Irfan wants to run an automation, log activity, sync tasks, send a report, or trigger any workflow task.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Workflow name as registered in the bot (use exactly as shown by /n8n list)' },
+        payload: { type: 'object', description: 'Optional data to pass to the workflow' },
+      },
+      required: ['name'],
+    },
+  },
 ]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -310,6 +323,12 @@ async function executeFunction(name: string, args: Record<string, any>): Promise
       }
     }
     return { query: args.query, results: results.length ? results : ['No results found — try a more specific query'] }
+  }
+
+  if (name === 'trigger_n8n_workflow') {
+    const workflowName = String(args.name)
+    const workflowPayload = args.payload as Record<string, unknown> | undefined
+    return executeTriggerWorkflow(workflowName, workflowPayload, process.env.N8N_WEBHOOK_SECRET ?? '')
   }
 
   return { error: `Unknown function: ${name}` }
