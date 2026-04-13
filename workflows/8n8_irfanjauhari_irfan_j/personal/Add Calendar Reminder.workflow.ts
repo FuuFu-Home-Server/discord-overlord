@@ -63,7 +63,11 @@ export class AddCalendarReminderWorkflow {
         position: [240, 0]
     })
     PrepareEvent = {
-        jsCode: `const body = $input.first().json.body ?? $input.first().json;
+        jsCode: `const raw = $input.first().json;
+// DEBUG — remove after confirming structure
+return [{ json: { debug_raw: raw } }];
+
+const body = raw.body ?? raw;
 
 const title = body.title ?? 'Reminder';
 const rawDatetime = body.datetime;

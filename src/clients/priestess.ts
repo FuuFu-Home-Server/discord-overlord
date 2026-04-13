@@ -334,8 +334,14 @@ async function executeFunction(name: string, args: Record<string, any>): Promise
 
   if (name === 'list_n8n_workflows') {
     const db = getPool()
-    const result = await db.query('SELECT name, description FROM n8n_workflows ORDER BY name ASC')
-    return { workflows: result.rows.map((r: { name: string; description: string | null }) => ({ name: r.name, description: r.description ?? '' })) }
+    const result = await db.query('SELECT name, description, payload_schema FROM n8n_workflows ORDER BY name ASC')
+    return {
+      workflows: result.rows.map((r: { name: string; description: string | null; payload_schema: Record<string, unknown> | null }) => ({
+        name: r.name,
+        description: r.description ?? '',
+        payload_schema: r.payload_schema ?? {},
+      }))
+    }
   }
 
   if (name === 'trigger_n8n_workflow') {
