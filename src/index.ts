@@ -1,4 +1,5 @@
 import { Client, GatewayIntentBits, Events, Collection } from 'discord.js'
+import { Server } from 'http'
 import path from 'path'
 import { loadConfig } from './config'
 import { loadCommands, registerCommands } from './registry'
@@ -54,6 +55,8 @@ async function main(): Promise<void> {
   }
 
   await registerCommands(config, loaded)
+
+  let webhookServer: Server | null = null
 
   const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] })
 
@@ -146,6 +149,9 @@ async function main(): Promise<void> {
 
   process.on('SIGTERM', () => {
     console.log('Received SIGTERM, shutting down.')
+    if (webhookServer) {
+      (webhookServer as Server).close()
+    }
     client.destroy()
     process.exit(0)
   })
