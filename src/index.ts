@@ -30,6 +30,7 @@ import systemCommand, {
   setAdminRoleId as setSystemAdminRoleId,
 } from "./commands/system/index";
 import worklogCommand from "./commands/worklog/index";
+import bookmarkCommand from "./commands/bookmark/index";
 
 function splitMessage(text: string, limit = 2000): string[] {
   if (text.length <= limit) return [text];
@@ -67,6 +68,7 @@ async function main(): Promise<void> {
   void systemCommand;
   void caddyCommand;
   void n8nCommand;
+  void bookmarkCommand;
 
   const commands = new Collection<string, Command>();
   const loaded = await loadCommands(path.join(__dirname, "commands"));
