@@ -55,7 +55,7 @@ async function dispatchEvent(client: Client, config: Config, payload: N8nEvent):
   if (!channel?.isSendable()) return
 
   if (payload.via === 'priestess' && config.aiUserId) {
-    const { reply } = await chat(config.aiUserId, `[SYSTEM: automation result — ${payload.message}. Relay this to FuuFu in one short, warm sentence. No raw data, no ISO dates — use human-readable time if needed.]`)
+    const { reply } = await chat(config.aiUserId, `[SYSTEM: automation result — ${payload.message}. Relay this to FuuFu in one short, warm sentence. Convert any ISO dates to human-readable WIB time. If a URL is present in the message, include it as-is in your reply.]`)
     await channel.send(`<@${config.aiUserId}> ${reply}`).catch((err: Error) => {
       console.error('webhook-server: failed to send priestess reply:', err)
     })
