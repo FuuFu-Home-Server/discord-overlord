@@ -8,7 +8,7 @@ export async function executeTriggerWorkflow(
 ): Promise<Record<string, unknown>> {
   if (!name.trim()) return { error: 'Workflow name must not be empty.' }
   const db = getPool()
-  const result = await db.query('SELECT webhook_url FROM n8n_workflows WHERE name = $1', [name])
+  const result = await db.query('SELECT webhook_url FROM n8n_workflows WHERE LOWER(name) = LOWER($1)', [name])
   if (!result.rows[0]) {
     return { error: `Workflow "${name}" not found. Use /n8n list to see registered workflows.` }
   }
