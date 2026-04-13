@@ -1,5 +1,4 @@
 import { Client, Collection, Events, GatewayIntentBits } from "discord.js";
-import { Server } from "http";
 import path from "path";
 import { initDb } from "./clients/db";
 import {
@@ -76,8 +75,6 @@ async function main(): Promise<void> {
   }
 
   await registerCommands(config, loaded);
-
-  let webhookServer: Server | null = null;
 
   const client = new Client({
     intents: [
