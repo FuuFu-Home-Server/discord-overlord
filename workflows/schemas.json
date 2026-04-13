@@ -1,0 +1,47 @@
+{
+  "_format": {
+    "description": "Standard format for n8n workflow payload schemas stored in n8n_workflows.payload_schema",
+    "spec": {
+      "fields": [
+        {
+          "name": "field_name",
+          "type": "string | number | boolean | object | array",
+          "required": true,
+          "description": "human-readable description of what this field is",
+          "default": "optional — only present when required is false"
+        }
+      ]
+    }
+  },
+  "workflows": {
+    "Add Calendar Reminder": {
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "required": true,
+          "description": "event title shown in Google Calendar"
+        },
+        {
+          "name": "datetime",
+          "type": "string",
+          "required": true,
+          "description": "absolute ISO 8601 start time in WIB (UTC+7) e.g. 2026-04-14T10:00:00+07:00 — never pass relative strings like 'tomorrow'"
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "required": false,
+          "description": "optional event body / notes"
+        },
+        {
+          "name": "duration_minutes",
+          "type": "number",
+          "required": false,
+          "default": 30,
+          "description": "event duration in minutes"
+        }
+      ]
+    }
+  }
+}

@@ -240,7 +240,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: 'list_n8n_workflows',
-    description: 'List all registered n8n workflows available to trigger. Call this first when Irfan asks to run any automation and you are unsure of the exact workflow name.',
+    description: 'List all registered n8n workflows available to trigger. Call this first when Irfan asks to run any automation. Each workflow includes a payload_schema with a fields array — each field has name, type, required, description, and optional default. Use these exact field names when constructing the payload.',
     parametersJsonSchema: { type: 'object', properties: {} },
   },
   {
@@ -334,12 +334,18 @@ async function executeFunction(name: string, args: Record<string, any>): Promise
 
   if (name === 'list_n8n_workflows') {
     const db = getPool()
-    const result = await db.query('SELECT name, description, payload_schema FROM n8n_workflows ORDER BY name ASC')
+    const result = await db.query('SELECT name, description FROM n8n_workflows ORDER BY name ASC')
+    const schemasPath = path.join(__dirname, '../../workflows/schemas.json')
+    let schemas: Record<string, unknown> = {}
+    try {
+      const raw = readFileSync(schemasPath, 'utf8')
+      schemas = (JSON.parse(raw) as { workflows: Record<string, unknown> }).workflows ?? {}
+    } catch { /* schemas file missing or malformed — degrade gracefully */ }
     return {
-      workflows: result.rows.map((r: { name: string; description: string | null; payload_schema: Record<string, unknown> | null }) => ({
+      workflows: result.rows.map((r: { name: string; description: string | null }) => ({
         name: r.name,
         description: r.description ?? '',
-        payload_schema: r.payload_schema ?? {},
+        payload_schema: schemas[r.name] ?? {},
       }))
     }
   }

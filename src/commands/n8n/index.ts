@@ -4,11 +4,6 @@ import {
   AutocompleteInteraction,
   EmbedBuilder,
   GuildMember,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  ActionRowBuilder,
-  ModalSubmitInteraction,
 } from 'discord.js'
 import type { Command } from '../../types'
 import { getPool } from '../../clients/db'
@@ -42,20 +37,10 @@ const data = new SlashCommandBuilder()
       .addStringOption(opt =>
         opt.setName('description').setDescription('What this workflow does').setRequired(true)
       )
-      .addStringOption(opt =>
-        opt.setName('schema').setDescription('Payload schema as JSON object e.g. {"title":"string","datetime":"ISO8601"}').setRequired(false)
-      )
   )
   .addSubcommand(sub =>
     sub.setName('list')
       .setDescription('List all registered workflows')
-  )
-  .addSubcommand(sub =>
-    sub.setName('set-schema')
-      .setDescription('Update the payload schema for a registered workflow (admin only)')
-      .addStringOption(opt =>
-        opt.setName('name').setDescription('Workflow name').setRequired(true).setAutocomplete(true)
-      )
   )
 
 async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -89,67 +74,26 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
       return
     }
     await interaction.deferReply({ ephemeral: true })
-    const name = interaction.options.getString('name', true).trim().toLowerCase().replace(/\s+/g, '_')
+    const name = interaction.options.getString('name', true).trim()
     const url = interaction.options.getString('url', true).trim()
     try { new URL(url) } catch {
       await interaction.editReply('Invalid URL format.')
       return
     }
     const description = interaction.options.getString('description', true).trim()
-    const rawSchema = interaction.options.getString('schema')
-    let payloadSchema: Record<string, unknown> | null = null
-    if (rawSchema) {
-      try {
-        payloadSchema = JSON.parse(rawSchema) as Record<string, unknown>
-      } catch {
-        await interaction.editReply('Invalid JSON in schema argument.')
-        return
-      }
-    }
     const db = getPool()
     await db.query(`
-      INSERT INTO n8n_workflows (name, webhook_url, description, payload_schema, updated_at)
-      VALUES ($1, $2, $3, $4, NOW())
-      ON CONFLICT (name) DO UPDATE SET webhook_url = $2, description = $3, payload_schema = $4, updated_at = NOW()
-    `, [name, url, description, payloadSchema ? JSON.stringify(payloadSchema) : null])
-    await interaction.editReply(`Workflow **${name}** registered.`)
-    return
-  }
-
-  if (sub === 'set-schema') {
-    const member = interaction.member as GuildMember
-    if (!member.roles.cache.has(adminRoleId)) {
-      await interaction.reply({ content: 'You need the admin role to update schemas.', ephemeral: true })
-      return
-    }
-    const name = interaction.options.getString('name', true).trim()
-    const db = getPool()
-    const existing = await db.query('SELECT payload_schema FROM n8n_workflows WHERE LOWER(name) = LOWER($1)', [name])
-    if (existing.rows.length === 0) {
-      await interaction.reply({ content: `Workflow **${name}** not found.`, ephemeral: true })
-      return
-    }
-    const currentSchema = existing.rows[0].payload_schema
-      ? JSON.stringify(existing.rows[0].payload_schema, null, 2)
-      : '{}'
-    const title = `Schema — ${name}`.slice(0, 45)
-    const modal = new ModalBuilder()
-      .setCustomId(`n8n:set-schema:${name}`)
-      .setTitle(title)
-    const input = new TextInputBuilder()
-      .setCustomId('schema')
-      .setLabel('Payload schema (JSON)')
-      .setStyle(TextInputStyle.Paragraph)
-      .setValue(currentSchema)
-      .setRequired(true)
-    modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input))
-    await interaction.showModal(modal)
+      INSERT INTO n8n_workflows (name, webhook_url, description, updated_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (name) DO UPDATE SET webhook_url = $2, description = $3, updated_at = NOW()
+    `, [name, url, description])
+    await interaction.editReply(`Workflow **${name}** registered. Don't forget to add its schema to \`workflows/schemas.json\`.`)
     return
   }
 
   if (sub === 'trigger') {
     await interaction.deferReply()
-    const name = interaction.options.getString('name', true).trim().toLowerCase().replace(/\s+/g, '_')
+    const name = interaction.options.getString('name', true).trim()
     const rawPayload = interaction.options.getString('payload')
     let payload: Record<string, unknown> | undefined
     if (rawPayload) {
@@ -184,28 +128,5 @@ async function autocomplete(interaction: AutocompleteInteraction): Promise<void>
   }
 }
 
-async function modalSubmit(interaction: ModalSubmitInteraction): Promise<void> {
-  // customId format: n8n:set-schema:<workflow name>
-  const name = interaction.customId.split(':').slice(2).join(':')
-  const rawSchema = interaction.fields.getTextInputValue('schema')
-  let payloadSchema: Record<string, unknown>
-  try {
-    payloadSchema = JSON.parse(rawSchema) as Record<string, unknown>
-  } catch {
-    await interaction.reply({ content: 'Invalid JSON — schema not saved.', ephemeral: true })
-    return
-  }
-  const db = getPool()
-  const result = await db.query(
-    'UPDATE n8n_workflows SET payload_schema = $1, updated_at = NOW() WHERE LOWER(name) = LOWER($2) RETURNING name',
-    [JSON.stringify(payloadSchema), name]
-  )
-  if (result.rowCount === 0) {
-    await interaction.reply({ content: `Workflow **${name}** not found.`, ephemeral: true })
-    return
-  }
-  await interaction.reply({ content: `Schema updated for **${result.rows[0].name}**.`, ephemeral: true })
-}
-
-const command: Command = { data, execute, autocomplete, modalSubmit }
+const command: Command = { data, execute, autocomplete }
 export default command
