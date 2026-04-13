@@ -7,7 +7,7 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 // NODE INDEX
 // ──────────────────────────────────────────────────────────────────
 // Property name                    Node type (short)         Flags
-// WebhookTrigger                     webhook                    [creds]
+// WebhookTrigger                     webhook                    
 // PrepareEvent                       code                       
 // CreateCalendarEvent                googleCalendar             [onError→out(1)] [creds]
 // NotifySuccess                      httpRequest                
@@ -44,13 +44,12 @@ export class AddCalendarReminderWorkflow {
         name: "Webhook Trigger",
         type: "n8n-nodes-base.webhook",
         version: 1,
-        position: [0, 0],
-        credentials: {httpHeaderAuth:{id:"Nfhab7GSfRJH3GtS",name:"Header Auth account"}}
+        position: [0, 0]
     })
     WebhookTrigger = {
         httpMethod: "POST",
         path: "add-calendar-reminder",
-        authentication: "headerAuth",
+        authentication: "none",
         options: {
             responseData: "json"
         }

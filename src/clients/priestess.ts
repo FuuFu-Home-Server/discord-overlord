@@ -245,7 +245,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: 'trigger_n8n_workflow',
-    description: 'Trigger a registered n8n automation workflow by name. Always call list_n8n_workflows first to discover available workflows and their required payloads.',
+    description: 'Trigger a registered n8n automation workflow by name. Always call list_n8n_workflows first to discover available workflows and their required payloads. IMPORTANT: always resolve relative dates ("tomorrow", "next Monday", "in 2 hours") to absolute ISO 8601 strings in WIB (UTC+7) before passing them in the payload — never pass natural language date strings.',
     parametersJsonSchema: {
       type: 'object',
       properties: {
