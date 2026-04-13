@@ -27,7 +27,7 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 @workflow({
     id: "Xo6DHI1tD7DH7hNd",
     name: "Proactive Calendar Reminder",
-    active: false,
+    active: true,
     settings: { executionOrder: "v1", callerPolicy: "workflowsFromSameOwner", availableInMCP: false }
 })
 export class ProactiveCalendarReminderWorkflow {
@@ -100,9 +100,7 @@ for (const id of Object.keys(notified)) {
 const items = $input.all();
 const toNotify = items.filter(item => {
   const id = item.json.id;
-  if (!id || notified[id]) return false;
-  const startMs = new Date(item.json.start?.dateTime ?? item.json.start?.date).getTime();
-  return startMs > now;
+  return !(!id || notified[id]);
 });
 
 for (const item of toNotify) {
@@ -118,11 +116,12 @@ return toNotify.map(item => {
   const title = item.json.summary ?? 'Event';
   const loc = item.json.location ? \` at \${item.json.location}\` : '';
   const link = item.json.htmlLink ? \` Google Calendar link: \${item.json.htmlLink}\` : '';
+  const timing = minutesUntil <= 0 ? 'is happening now' : \`starts in \${minutesUntil} minute\${minutesUntil !== 1 ? 's' : ''}\`;
   return {
     json: {
       event: 'calendar.reminder.upcoming',
       via: 'priestess',
-      message: \`"\${title}" starts in \${minutesUntil} minute\${minutesUntil !== 1 ? 's' : ''}\${loc}.\${link}\`
+      message: \`"\${title}" \${timing}\${loc}.\${link}\`
     }
   };
 });`
@@ -152,12 +151,23 @@ return toNotify.map(item => {
             ]
         },
         sendBody: true,
-        specifyBody: "json",
-        jsonBody: `={
-  "event": "{{ $json.event }}",
-  "via": "{{ $json.via }}",
-  "message": "{{ $json.message }}"
-}`,
+        specifyBody: "keypair",
+        bodyParameters: {
+            parameters: [
+                {
+                    name: "event",
+                    value: "={{ $json.event }}"
+                },
+                {
+                    name: "via",
+                    value: "={{ $json.via }}"
+                },
+                {
+                    name: "message",
+                    value: "={{ $json.message }}"
+                }
+            ]
+        },
         options: {
             timeout: 8000
         }

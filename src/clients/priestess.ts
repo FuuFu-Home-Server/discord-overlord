@@ -258,6 +258,41 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     },
   },
   {
+    name: "remember_note",
+    description:
+      "Save or update a persistent fact about FuuFu to remember across future conversations. Use this proactively whenever FuuFu shares a preference, habit, goal, routine, or any personal detail worth remembering.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        key: {
+          type: "string",
+          description:
+            "Short snake_case identifier, e.g. 'workout_schedule', 'dietary_goal', 'sleep_target'",
+        },
+        value: {
+          type: "string",
+          description: "The fact to remember, written as a complete sentence",
+        },
+      },
+      required: ["key", "value"],
+    },
+  },
+  {
+    name: "forget_note",
+    description:
+      "Delete a saved note that is no longer accurate or relevant.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        key: {
+          type: "string",
+          description: "The key of the note to delete",
+        },
+      },
+      required: ["key"],
+    },
+  },
+  {
     name: "trigger_n8n_workflow",
     description:
       'Trigger a registered n8n automation workflow by name. Always call list_n8n_workflows first to discover available workflows and their required payloads. CRITICAL: construct the payload using ONLY the exact field names listed in the workflow\'s payload_schema.fields array — do NOT rename, abbreviate, translate, or substitute them. For example if the schema says "dateTime", send "dateTime" — not "date", "due_date", "datetime", "start_time", or any other variation. IMPORTANT: always resolve relative dates ("tomorrow", "next Monday", "in 2 hours") to absolute ISO 8601 strings in WIB (UTC+7) before passing them in the payload — never pass natural language date strings. After triggering, tell FuuFu you have submitted the request and that he will be notified of the result. Do NOT claim the workflow succeeded or failed — the outcome arrives via a separate callback.',
@@ -282,6 +317,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
 async function executeFunction(
   name: string,
   args: Record<string, any>,
+  userId: string,
 ): Promise<Record<string, unknown>> {
   if (name === "get_system_stats") {
     const stats = await getSystemStats();
@@ -370,6 +406,26 @@ async function executeFunction(
     };
   }
 
+  if (name === "remember_note") {
+    const db = getPool();
+    await db.query(
+      `INSERT INTO priestess_notes (user_id, key, value, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (user_id, key) DO UPDATE SET value = $3, updated_at = NOW()`,
+      [userId, String(args.key), String(args.value)],
+    );
+    return { ok: true, key: args.key };
+  }
+
+  if (name === "forget_note") {
+    const db = getPool();
+    await db.query(
+      "DELETE FROM priestess_notes WHERE user_id = $1 AND key = $2",
+      [userId, String(args.key)],
+    );
+    return { ok: true, key: args.key };
+  }
+
   if (name === "trigger_n8n_workflow") {
     const workflowName = String(args.name);
     const workflowPayload = args.payload as Record<string, unknown> | undefined;
@@ -381,6 +437,21 @@ async function executeFunction(
   }
 
   return { error: `Unknown function: ${name}` };
+}
+
+async function getNotesBlock(userId: string): Promise<string> {
+  try {
+    const db = getPool();
+    const result = await db.query(
+      "SELECT key, value FROM priestess_notes WHERE user_id = $1 ORDER BY key ASC",
+      [userId],
+    );
+    const rows = result.rows as { key: string; value: string }[];
+    if (rows.length === 0) return "";
+    return `\n\nWhat I remember about FuuFu:\n${rows.map((r) => `- ${r.key}: ${r.value}`).join("\n")}`;
+  } catch {
+    return "";
+  }
 }
 
 let ai: GoogleGenAI | null = null;
@@ -468,9 +539,10 @@ export async function chat(
   userId: string,
   message: string,
 ): Promise<ChatResult> {
-  const [persona, history] = await Promise.all([
+  const [persona, history, notesBlock] = await Promise.all([
     getPersona(userId),
     getHistory(userId),
+    getNotesBlock(userId),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -509,7 +581,7 @@ export async function chat(
     if (lines.length > 0) workflowsBlock = `\n\nAvailable n8n workflows (call trigger_n8n_workflow directly using these):\n${lines.join('\n')}`
   } catch { /* ignore */ }
 
-  const systemInstruction = `${persona}\n\nCurrent date and time (WIB, UTC+7): ${nowWIB}${workflowsBlock}`;
+  const systemInstruction = `${persona}\n\nCurrent date and time (WIB, UTC+7): ${nowWIB}${notesBlock}${workflowsBlock}`;
   const tools = [{ functionDeclarations: FUNCTION_DECLARATIONS }];
   const config = { systemInstruction, tools };
 
@@ -531,7 +603,7 @@ export async function chat(
 
     const results = await Promise.all(
       calls.map(async (call) => {
-        const result = await executeFunction(call.name ?? "", (call.args ?? {}) as Record<string, any>)
+        const result = await executeFunction(call.name ?? "", (call.args ?? {}) as Record<string, any>, userId)
         console.log(`[priestess] ${call.name} →`, JSON.stringify(result).slice(0, 200))
         return { name: call.name ?? "", response: result, id: call.id ?? "" }
       }),
@@ -575,9 +647,9 @@ export async function chat(
 }
 
 export async function notify(userId: string, message: string): Promise<string> {
-  const persona = await getPersona(userId)
+  const [persona, notesBlock] = await Promise.all([getPersona(userId), getNotesBlock(userId)])
   const nowWIB = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Jakarta', dateStyle: 'full', timeStyle: 'long' })
-  const systemInstruction = `${persona}\n\nCurrent date and time (WIB, UTC+7): ${nowWIB}`
+  const systemInstruction = `${persona}\n\nCurrent date and time (WIB, UTC+7): ${nowWIB}${notesBlock}`
   const contents = [{ role: 'user', parts: [{ text: message }] }]
   const response = await getAI().models.generateContent({ model: MODEL, contents, config: { systemInstruction } })
   return response.text?.trim() || '_(no response)_'

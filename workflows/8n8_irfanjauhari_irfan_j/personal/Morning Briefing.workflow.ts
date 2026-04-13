@@ -143,12 +143,14 @@ return [{
             ]
         },
         sendBody: true,
-        specifyBody: "json",
-        jsonBody: `={
-  "event": "{{ $json.event }}",
-  "via": "{{ $json.via }}",
-  "message": "{{ $json.message }}"
-}`,
+        specifyBody: "keypair",
+        bodyParameters: {
+            parameters: [
+                { name: "event", value: "={{ $json.event }}" },
+                { name: "via", value: "={{ $json.via }}" },
+                { name: "message", value: "={{ $json.message }}" }
+            ]
+        },
         options: {
             timeout: 8000
         }
