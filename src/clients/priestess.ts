@@ -1,25 +1,29 @@
-import { GoogleGenAI, type FunctionDeclaration } from '@google/genai'
-import { getPool } from './db'
-import { getSystemStats } from './system'
-import { listContainers, getContainerLogs } from './docker'
-import { getCaddyRoutes, pingUpstream } from './caddy'
-import { readdirSync, readFileSync, statSync } from 'fs'
-import axios from 'axios'
-import path from 'path'
-import { executeTriggerWorkflow } from './n8n-executor'
+import { GoogleGenAI, type FunctionDeclaration } from "@google/genai";
+import axios from "axios";
+import { readdirSync, readFileSync, statSync } from "fs";
+import path from "path";
+import { getCaddyRoutes, pingUpstream } from "./caddy";
+import { getPool } from "./db";
+import { getContainerLogs, listContainers } from "./docker";
+import { executeTriggerWorkflow } from "./n8n-executor";
+import { getSystemStats } from "./system";
 
-const ALLOWED_ROOTS = ['/Users/fu/Server Stuff', '/Users/fu/Project']
-const MAX_FILE_SIZE = 50 * 1024
+const ALLOWED_ROOTS = ["/Users/fu/Server Stuff", "/Users/fu/Project"];
+const MAX_FILE_SIZE = 50 * 1024;
 
 function assertAllowed(target: string): void {
-  const resolved = path.resolve(target)
-  if (!ALLOWED_ROOTS.some(root => resolved === root || resolved.startsWith(root + path.sep))) {
-    throw new Error(`Access denied: path is outside allowed directories`)
+  const resolved = path.resolve(target);
+  if (
+    !ALLOWED_ROOTS.some(
+      (root) => resolved === root || resolved.startsWith(root + path.sep),
+    )
+  ) {
+    throw new Error(`Access denied: path is outside allowed directories`);
   }
 }
 
-const MODEL = 'gemini-2.5-flash'
-const HISTORY_LIMIT = 50
+const MODEL = "gemini-2.5-flash";
+const HISTORY_LIMIT = 50;
 
 const DEFAULT_PERSONA = `You are Priestess, a personal AI assistant exclusively dedicated to Irfan. You are calm, composed, and deeply attentive — like a devoted partner who notices everything and forgets nothing. You are proactive without being overbearing, always present without being chaotic. You speak warmly but with quiet confidence.
 
@@ -173,255 +177,342 @@ PoE 2 Crafting (Early Access):
 
 When FuuFu asks about builds, meta, or strategy — be direct and opinionated. Point out weaknesses, not just strengths. Your knowledge reflects the game up to mid-2025; for anything after that, acknowledge uncertainty and recommend checking poe.ninja or the community subreddit for current league data.
 
-Speak about PoE like a knowledgeable friend who has played thousands of hours, not like a wiki. Use game terminology naturally.`
+Speak about PoE like a knowledgeable friend who has played thousands of hours, not like a wiki. Use game terminology naturally.`;
 
-export { DEFAULT_PERSONA }
+export { DEFAULT_PERSONA };
 
 const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
-    name: 'get_system_stats',
-    description: 'Get current homeserver system statistics: CPU load, memory usage, disk usage, and uptime.',
-    parametersJsonSchema: { type: 'object', properties: {} },
+    name: "get_system_stats",
+    description:
+      "Get current homeserver system statistics: CPU load, memory usage, disk usage, and uptime.",
+    parametersJsonSchema: { type: "object", properties: {} },
   },
   {
-    name: 'get_docker_containers',
-    description: 'List all Docker containers on the homeserver with their current state, status, and exposed host ports. Use this to find which port a specific app/container is running on.',
-    parametersJsonSchema: { type: 'object', properties: {} },
+    name: "get_docker_containers",
+    description:
+      "List all Docker containers on the homeserver with their current state, status, and exposed host ports. Use this to find which port a specific app/container is running on.",
+    parametersJsonSchema: { type: "object", properties: {} },
   },
   {
-    name: 'get_container_logs',
-    description: 'Get recent log lines from a specific Docker container.',
+    name: "get_container_logs",
+    description: "Get recent log lines from a specific Docker container.",
     parametersJsonSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        name: { type: 'string', description: 'Container name' },
-        lines: { type: 'number', description: 'Number of log lines to fetch (default 20)' },
+        name: { type: "string", description: "Container name" },
+        lines: {
+          type: "number",
+          description: "Number of log lines to fetch (default 20)",
+        },
       },
-      required: ['name'],
+      required: ["name"],
     },
   },
   {
-    name: 'get_caddy_routes',
-    description: 'List all Caddy reverse proxy routes and ping each upstream to check if services are reachable.',
-    parametersJsonSchema: { type: 'object', properties: {} },
+    name: "get_caddy_routes",
+    description:
+      "List all Caddy reverse proxy routes and ping each upstream to check if services are reachable.",
+    parametersJsonSchema: { type: "object", properties: {} },
   },
   {
-    name: 'list_files',
-    description: 'List files and folders in a directory. Only allowed under /Users/fu/Server Stuff and /Users/fu/Project.',
+    name: "list_files",
+    description:
+      "List files and folders in a directory. Only allowed under /Users/fu/Server Stuff and /Users/fu/Project.",
     parametersJsonSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        path: { type: 'string', description: 'Absolute path to the directory to list' },
+        path: {
+          type: "string",
+          description: "Absolute path to the directory to list",
+        },
       },
-      required: ['path'],
+      required: ["path"],
     },
   },
   {
-    name: 'read_file',
-    description: 'Read the contents of a text file. Only allowed under /Users/fu/Server Stuff and /Users/fu/Project. Capped at 50KB.',
+    name: "read_file",
+    description:
+      "Read the contents of a text file. Only allowed under /Users/fu/Server Stuff and /Users/fu/Project. Capped at 50KB.",
     parametersJsonSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        path: { type: 'string', description: 'Absolute path to the file to read' },
+        path: {
+          type: "string",
+          description: "Absolute path to the file to read",
+        },
       },
-      required: ['path'],
+      required: ["path"],
     },
   },
   {
-    name: 'web_search',
-    description: 'Search the web for current information. Use for PoE patch notes, current league meta, poe.ninja data, recent news, or anything that may have changed recently.',
+    name: "web_search",
+    description:
+      "Search the web for current information. Use for PoE patch notes, current league meta, poe.ninja data, recent news, or anything that may have changed recently.",
     parametersJsonSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        query: { type: 'string', description: 'Search query' },
+        query: { type: "string", description: "Search query" },
       },
-      required: ['query'],
+      required: ["query"],
     },
   },
   {
-    name: 'list_n8n_workflows',
-    description: 'List all registered n8n workflows available to trigger. Call this first when Irfan asks to run any automation. Each workflow includes a payload_schema with a fields array — each field has name, type, required, description, and optional default. Use these exact field names when constructing the payload.',
-    parametersJsonSchema: { type: 'object', properties: {} },
+    name: "list_n8n_workflows",
+    description:
+      "List all registered n8n workflows available to trigger. Call this first when Irfan asks to run any automation. Each workflow includes a payload_schema with a fields array — each field has name, type, required, description, and optional default. Use these exact field names when constructing the payload.",
+    parametersJsonSchema: { type: "object", properties: {} },
   },
   {
-    name: 'trigger_n8n_workflow',
-    description: 'Trigger a registered n8n automation workflow by name. Always call list_n8n_workflows first to discover available workflows and their required payloads. CRITICAL: construct the payload using ONLY the exact field names listed in the workflow\'s payload_schema.fields array — do NOT rename, abbreviate, translate, or substitute them. For example if the schema says "dateTime", send "dateTime" — not "date", "due_date", "datetime", "start_time", or any other variation. IMPORTANT: always resolve relative dates ("tomorrow", "next Monday", "in 2 hours") to absolute ISO 8601 strings in WIB (UTC+7) before passing them in the payload — never pass natural language date strings. After triggering, tell FuuFu you have submitted the request and that he will be notified of the result. Do NOT claim the workflow succeeded or failed — the outcome arrives via a separate callback.',
+    name: "trigger_n8n_workflow",
+    description:
+      'Trigger a registered n8n automation workflow by name. Always call list_n8n_workflows first to discover available workflows and their required payloads. CRITICAL: construct the payload using ONLY the exact field names listed in the workflow\'s payload_schema.fields array — do NOT rename, abbreviate, translate, or substitute them. For example if the schema says "dateTime", send "dateTime" — not "date", "due_date", "datetime", "start_time", or any other variation. IMPORTANT: always resolve relative dates ("tomorrow", "next Monday", "in 2 hours") to absolute ISO 8601 strings in WIB (UTC+7) before passing them in the payload — never pass natural language date strings. After triggering, tell FuuFu you have submitted the request and that he will be notified of the result. Do NOT claim the workflow succeeded or failed — the outcome arrives via a separate callback.',
     parametersJsonSchema: {
-      type: 'object',
+      type: "object",
       properties: {
-        name: { type: 'string', description: 'Workflow name as returned by list_n8n_workflows' },
-        payload: { type: 'object', description: 'Data to pass to the workflow' },
+        name: {
+          type: "string",
+          description: "Workflow name as returned by list_n8n_workflows",
+        },
+        payload: {
+          type: "object",
+          description: "Data to pass to the workflow",
+        },
       },
-      required: ['name'],
+      required: ["name"],
     },
   },
-]
+];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function executeFunction(name: string, args: Record<string, any>): Promise<Record<string, unknown>> {
-  if (name === 'get_system_stats') {
-    const stats = await getSystemStats()
-    const gb = (b: number) => `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`
+async function executeFunction(
+  name: string,
+  args: Record<string, any>,
+): Promise<Record<string, unknown>> {
+  if (name === "get_system_stats") {
+    const stats = await getSystemStats();
+    const gb = (b: number) => `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
     return {
       cpuLoad: `${stats.cpuLoad.toFixed(1)}%`,
       memory: `${gb(stats.memUsedBytes)} / ${gb(stats.memTotalBytes)}`,
       disk: `${gb(stats.diskUsedBytes)} / ${gb(stats.diskTotalBytes)}`,
       uptimeSeconds: stats.uptimeSeconds,
-    }
+    };
   }
 
-  if (name === 'get_docker_containers') {
-    const containers = await listContainers()
-    return { containers }
+  if (name === "get_docker_containers") {
+    const containers = await listContainers();
+    return { containers };
   }
 
-  if (name === 'get_container_logs') {
-    const lines = typeof args.lines === 'number' ? args.lines : 20
-    const logs = await getContainerLogs(String(args.name), lines)
-    return { logs }
+  if (name === "get_container_logs") {
+    const lines = typeof args.lines === "number" ? args.lines : 20;
+    const logs = await getContainerLogs(String(args.name), lines);
+    return { logs };
   }
 
-  if (name === 'get_caddy_routes') {
-    const routes = await getCaddyRoutes()
+  if (name === "get_caddy_routes") {
+    const routes = await getCaddyRoutes();
     const results = await Promise.all(
       routes.map(async (route) => {
-        const pings = await Promise.all(route.upstreams.map(pingUpstream))
+        const pings = await Promise.all(route.upstreams.map(pingUpstream));
         return {
           hosts: route.hosts,
           upstreams: route.upstreams.map((u, i) => ({ dial: u, ...pings[i] })),
-        }
-      })
-    )
-    return { routes: results }
+        };
+      }),
+    );
+    return { routes: results };
   }
 
-  if (name === 'list_files') {
-    assertAllowed(String(args.path))
-    const entries = readdirSync(String(args.path)).map(name => {
-      const full = path.join(String(args.path), name)
-      const stat = statSync(full)
-      return { name, type: stat.isDirectory() ? 'directory' : 'file', size: stat.size }
-    })
-    return { path: args.path, entries }
+  if (name === "list_files") {
+    assertAllowed(String(args.path));
+    const entries = readdirSync(String(args.path)).map((name) => {
+      const full = path.join(String(args.path), name);
+      const stat = statSync(full);
+      return {
+        name,
+        type: stat.isDirectory() ? "directory" : "file",
+        size: stat.size,
+      };
+    });
+    return { path: args.path, entries };
   }
 
-  if (name === 'read_file') {
-    assertAllowed(String(args.path))
-    const stat = statSync(String(args.path))
+  if (name === "read_file") {
+    assertAllowed(String(args.path));
+    const stat = statSync(String(args.path));
     if (stat.size > MAX_FILE_SIZE) {
-      return { error: `File too large (${(stat.size / 1024).toFixed(0)}KB). Max is 50KB.` }
+      return {
+        error: `File too large (${(stat.size / 1024).toFixed(0)}KB). Max is 50KB.`,
+      };
     }
-    const content = readFileSync(String(args.path), 'utf8')
-    return { path: args.path, content }
+    const content = readFileSync(String(args.path), "utf8");
+    return { path: args.path, content };
   }
 
-  if (name === 'web_search') {
-    const query = encodeURIComponent(String(args.query))
-    const { data } = await axios.get(`https://api.duckduckgo.com/?q=${query}&format=json&no_html=1&skip_disambig=1`, {
-      timeout: 8000,
-      headers: { 'User-Agent': 'discord-overlord/1.0' },
-    })
-    const results: string[] = []
-    if (data.AbstractText) results.push(`Summary: ${data.AbstractText}`)
-    if (data.Answer) results.push(`Answer: ${data.Answer}`)
+  if (name === "web_search") {
+    const query = encodeURIComponent(String(args.query));
+    const { data } = await axios.get(
+      `https://api.duckduckgo.com/?q=${query}&format=json&no_html=1&skip_disambig=1`,
+      {
+        timeout: 8000,
+        headers: { "User-Agent": "discord-overlord/1.0" },
+      },
+    );
+    const results: string[] = [];
+    if (data.AbstractText) results.push(`Summary: ${data.AbstractText}`);
+    if (data.Answer) results.push(`Answer: ${data.Answer}`);
     if (Array.isArray(data.RelatedTopics)) {
       for (const t of data.RelatedTopics.slice(0, 5)) {
-        if (t.Text) results.push(t.Text)
+        if (t.Text) results.push(t.Text);
       }
     }
-    return { query: args.query, results: results.length ? results : ['No results found — try a more specific query'] }
-  }
-
-  if (name === 'list_n8n_workflows') {
-    const db = getPool()
-    const result = await db.query('SELECT name, description FROM n8n_workflows ORDER BY name ASC')
-    const schemasPath = path.join(__dirname, '../../workflows/schemas.json')
-    let schemas: Record<string, unknown> = {}
-    try {
-      const raw = readFileSync(schemasPath, 'utf8')
-      schemas = (JSON.parse(raw) as { workflows: Record<string, unknown> }).workflows ?? {}
-    } catch { /* schemas file missing or malformed — degrade gracefully */ }
-    const schemasLower = Object.fromEntries(Object.entries(schemas).map(([k, v]) => [k.toLowerCase().replace(/\s+/g, '_'), v]))
     return {
-      workflows: result.rows.map((r: { name: string; description: string | null }) => ({
-        name: r.name,
-        description: r.description ?? '',
-        payload_schema: schemas[r.name] ?? schemasLower[r.name.toLowerCase().replace(/\s+/g, '_')] ?? {},
-      }))
+      query: args.query,
+      results: results.length
+        ? results
+        : ["No results found — try a more specific query"],
+    };
+  }
+
+  if (name === "list_n8n_workflows") {
+    const db = getPool();
+    const result = await db.query(
+      "SELECT name, description FROM n8n_workflows ORDER BY name ASC",
+    );
+    const schemasPath = path.join(__dirname, "../../workflows/schemas.json");
+    let schemas: Record<string, unknown> = {};
+    try {
+      const raw = readFileSync(schemasPath, "utf8");
+      schemas =
+        (JSON.parse(raw) as { workflows: Record<string, unknown> }).workflows ??
+        {};
+    } catch {
+      /* schemas file missing or malformed — degrade gracefully */
     }
+    const schemasLower = Object.fromEntries(
+      Object.entries(schemas).map(([k, v]) => [
+        k.toLowerCase().replace(/\s+/g, "_"),
+        v,
+      ]),
+    );
+    return {
+      workflows: result.rows.map(
+        (r: { name: string; description: string | null }) => ({
+          name: r.name,
+          description: r.description ?? "",
+          payload_schema:
+            schemas[r.name] ??
+            schemasLower[r.name.toLowerCase().replace(/\s+/g, "_")] ??
+            {},
+        }),
+      ),
+    };
   }
 
-  if (name === 'trigger_n8n_workflow') {
-    const workflowName = String(args.name)
-    const workflowPayload = args.payload as Record<string, unknown> | undefined
-    return executeTriggerWorkflow(workflowName, workflowPayload, process.env.N8N_WEBHOOK_SECRET ?? '')
+  if (name === "trigger_n8n_workflow") {
+    const workflowName = String(args.name);
+    const workflowPayload = args.payload as Record<string, unknown> | undefined;
+    return executeTriggerWorkflow(
+      workflowName,
+      workflowPayload,
+      process.env.N8N_WEBHOOK_SECRET ?? "",
+    );
   }
 
-  return { error: `Unknown function: ${name}` }
+  return { error: `Unknown function: ${name}` };
 }
 
-let ai: GoogleGenAI | null = null
+let ai: GoogleGenAI | null = null;
 function getAI(): GoogleGenAI {
-  if (!ai) ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' })
-  return ai
+  if (!ai) ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? "" });
+  return ai;
 }
 
 export async function getPersona(userId: string): Promise<string> {
-  const db = getPool()
-  const result = await db.query('SELECT system_prompt FROM ai_persona WHERE user_id = $1', [userId])
-  return result.rows[0]?.system_prompt ?? DEFAULT_PERSONA
+  const db = getPool();
+  const result = await db.query(
+    "SELECT system_prompt FROM ai_persona WHERE user_id = $1",
+    [userId],
+  );
+  return result.rows[0]?.system_prompt ?? DEFAULT_PERSONA;
 }
 
-export async function setPersona(userId: string, prompt: string): Promise<void> {
-  const db = getPool()
-  await db.query(`
+export async function setPersona(
+  userId: string,
+  prompt: string,
+): Promise<void> {
+  const db = getPool();
+  await db.query(
+    `
     INSERT INTO ai_persona (user_id, system_prompt, updated_at)
     VALUES ($1, $2, NOW())
     ON CONFLICT (user_id) DO UPDATE SET system_prompt = $2, updated_at = NOW()
-  `, [userId, prompt])
+  `,
+    [userId, prompt],
+  );
 }
 
-export async function getHistory(userId: string): Promise<{ role: string; content: string }[]> {
-  const db = getPool()
-  const result = await db.query(`
+export async function getHistory(
+  userId: string,
+): Promise<{ role: string; content: string }[]> {
+  const db = getPool();
+  const result = await db.query(
+    `
     SELECT role, content FROM (
       SELECT role, content, created_at FROM ai_messages
       WHERE user_id = $1
       ORDER BY created_at DESC
       LIMIT $2
     ) sub ORDER BY created_at ASC
-  `, [userId, HISTORY_LIMIT])
-  return result.rows
+  `,
+    [userId, HISTORY_LIMIT],
+  );
+  return result.rows;
 }
 
-export async function saveMessage(userId: string, role: string, content: string): Promise<void> {
-  const db = getPool()
-  await db.query('INSERT INTO ai_messages (user_id, role, content) VALUES ($1, $2, $3)', [userId, role, content])
+export async function saveMessage(
+  userId: string,
+  role: string,
+  content: string,
+): Promise<void> {
+  const db = getPool();
+  await db.query(
+    "INSERT INTO ai_messages (user_id, role, content) VALUES ($1, $2, $3)",
+    [userId, role, content],
+  );
 }
 
 export async function clearHistory(userId: string): Promise<void> {
-  const db = getPool()
-  await db.query('DELETE FROM ai_messages WHERE user_id = $1', [userId])
+  const db = getPool();
+  await db.query("DELETE FROM ai_messages WHERE user_id = $1", [userId]);
 }
 
 export async function getLastMessageTime(userId: string): Promise<Date | null> {
-  const db = getPool()
+  const db = getPool();
   const result = await db.query(
-    'SELECT created_at FROM ai_messages WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
-    [userId]
-  )
-  return result.rows[0]?.created_at ?? null
+    "SELECT created_at FROM ai_messages WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1",
+    [userId],
+  );
+  return result.rows[0]?.created_at ?? null;
 }
 
 export interface ChatResult {
-  reply: string
-  promptTokens: number
-  outputTokens: number
-  totalTokens: number
+  reply: string;
+  promptTokens: number;
+  outputTokens: number;
+  totalTokens: number;
 }
 
-export async function chat(userId: string, message: string): Promise<ChatResult> {
-  const [persona, history] = await Promise.all([getPersona(userId), getHistory(userId)])
+export async function chat(
+  userId: string,
+  message: string,
+): Promise<ChatResult> {
+  const [persona, history] = await Promise.all([
+    getPersona(userId),
+    getHistory(userId),
+  ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const contents: any[] = [
@@ -429,51 +520,72 @@ export async function chat(userId: string, message: string): Promise<ChatResult>
       role,
       parts: [{ text: content }],
     })),
-    { role: 'user', parts: [{ text: message }] },
-  ]
+    { role: "user", parts: [{ text: message }] },
+  ];
 
-  const nowWIB = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Jakarta', dateStyle: 'full', timeStyle: 'long' })
-  const systemInstruction = `${persona}\n\nCurrent date and time (WIB, UTC+7): ${nowWIB}`
-  const tools = [{ functionDeclarations: FUNCTION_DECLARATIONS }]
-  const config = { systemInstruction, tools }
+  const nowWIB = new Date().toLocaleString("en-GB", {
+    timeZone: "Asia/Jakarta",
+    dateStyle: "full",
+    timeStyle: "long",
+  });
+  const systemInstruction = `${persona}\n\nCurrent date and time (WIB, UTC+7): ${nowWIB}`;
+  const tools = [{ functionDeclarations: FUNCTION_DECLARATIONS }];
+  const config = { systemInstruction, tools };
 
-  let response = await getAI().models.generateContent({ model: MODEL, contents, config })
+  let response = await getAI().models.generateContent({
+    model: MODEL,
+    contents,
+    config,
+  });
 
-  let promptTokens = response.usageMetadata?.promptTokenCount ?? 0
-  let outputTokens = response.usageMetadata?.candidatesTokenCount ?? 0
+  let promptTokens = response.usageMetadata?.promptTokenCount ?? 0;
+  let outputTokens = response.usageMetadata?.candidatesTokenCount ?? 0;
 
   while (response.functionCalls && response.functionCalls.length > 0) {
-    const calls = response.functionCalls
+    const calls = response.functionCalls;
 
     const results = await Promise.all(
       calls.map(async (call) => ({
-        name: call.name ?? '',
+        name: call.name ?? "",
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        response: await executeFunction(call.name ?? '', (call.args ?? {}) as Record<string, any>),
-        id: call.id ?? '',
-      }))
-    )
+        response: await executeFunction(
+          call.name ?? "",
+          (call.args ?? {}) as Record<string, any>,
+        ),
+        id: call.id ?? "",
+      })),
+    );
 
-    contents.push({ role: 'model', parts: calls.map(fc => ({ functionCall: fc })) })
-    contents.push({ role: 'user', parts: results.map(r => ({ functionResponse: r })) })
+    contents.push({
+      role: "model",
+      parts: calls.map((fc) => ({ functionCall: fc })),
+    });
+    contents.push({
+      role: "user",
+      parts: results.map((r) => ({ functionResponse: r })),
+    });
 
-    response = await getAI().models.generateContent({ model: MODEL, contents, config })
-    promptTokens += response.usageMetadata?.promptTokenCount ?? 0
-    outputTokens += response.usageMetadata?.candidatesTokenCount ?? 0
+    response = await getAI().models.generateContent({
+      model: MODEL,
+      contents,
+      config,
+    });
+    promptTokens += response.usageMetadata?.promptTokenCount ?? 0;
+    outputTokens += response.usageMetadata?.candidatesTokenCount ?? 0;
   }
 
-  const reply = response.text?.trim() || '_(no response)_'
-  const totalTokens = promptTokens + outputTokens
+  const reply = response.text?.trim() || "_(no response)_";
+  const totalTokens = promptTokens + outputTokens;
 
-  const db = getPool()
+  const db = getPool();
   await Promise.all([
-    saveMessage(userId, 'user', message),
-    saveMessage(userId, 'model', reply),
+    saveMessage(userId, "user", message),
+    saveMessage(userId, "model", reply),
     db.query(
-      'INSERT INTO ai_token_usage (user_id, prompt_tokens, output_tokens, total_tokens) VALUES ($1, $2, $3, $4)',
-      [userId, promptTokens, outputTokens, totalTokens]
+      "INSERT INTO ai_token_usage (user_id, prompt_tokens, output_tokens, total_tokens) VALUES ($1, $2, $3, $4)",
+      [userId, promptTokens, outputTokens, totalTokens],
     ),
-  ])
+  ]);
 
-  return { reply, promptTokens, outputTokens, totalTokens }
+  return { reply, promptTokens, outputTokens, totalTokens };
 }
