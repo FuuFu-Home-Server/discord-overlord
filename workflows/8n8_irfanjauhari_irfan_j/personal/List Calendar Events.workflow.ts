@@ -8,7 +8,7 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 // ──────────────────────────────────────────────────────────────────
 // Property name                    Node type (short)         Flags
 // WebhookTrigger                     webhook                    
-// GetEvents                          googleCalendar             [creds]
+// GetEvents                          googleCalendar             [creds] [alwaysOutput]
 // FormatList                         code                       
 // NotifyList                         httpRequest                
 //
@@ -27,7 +27,7 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 @workflow({
     id: "gPuCSav4RgEfLmlx",
     name: "List Calendar Events",
-    active: false,
+    active: true,
     settings: { executionOrder: "v1", callerPolicy: "workflowsFromSameOwner", availableInMCP: false }
 })
 export class ListCalendarEventsWorkflow {
@@ -47,7 +47,6 @@ export class ListCalendarEventsWorkflow {
     WebhookTrigger = {
         httpMethod: "POST",
         path: "list-calendar-events",
-        authentication: "none",
         options: {
             responseData: "json"
         }
@@ -59,7 +58,8 @@ export class ListCalendarEventsWorkflow {
         type: "n8n-nodes-base.googleCalendar",
         version: 1,
         position: [240, 0],
-        credentials: {googleCalendarOAuth2Api:{id:"sjkY1KJUq4GeoDH6",name:"Google Calendar account"}}
+        credentials: {googleCalendarOAuth2Api:{id:"sjkY1KJUq4GeoDH6",name:"Google Calendar account"}},
+        alwaysOutputData: true
     })
     GetEvents = {
         operation: "getAll",
@@ -72,7 +72,7 @@ export class ListCalendarEventsWorkflow {
         returnAll: true,
         options: {
             timeMin: "={{ new Date().toISOString() }}",
-            timeMax: "={{ new Date(Date.now() + (($('Webhook Trigger').item.json.body?.days ?? $('Webhook Trigger').item.json.days ?? 7)) * 86400000).toISOString() }}",
+            timeMax: "={{ new Date(Date.now() + 30 * 86400000).toISOString() }}",
             singleEvents: true,
             orderBy: "startTime"
         }
@@ -89,7 +89,8 @@ export class ListCalendarEventsWorkflow {
         jsCode: `const wb = $('Webhook Trigger').item.json;
 const body = wb.body ?? wb;
 const days = body.days ?? 7;
-const items = $input.all().filter(i => i.json.id);
+const cutoff = Date.now() + days * 86400000;
+const items = $input.all().filter(i => i.json.id && new Date(i.json.start?.dateTime ?? i.json.start?.date).getTime() <= cutoff);
 
 if (items.length === 0) {
   return [{ json: { event: 'calendar.events.list', via: 'priestess', message: \`No events in the next \${days} day\${days !== 1 ? 's' : ''}.\` } }];
@@ -133,7 +134,6 @@ return [{ json: { event: 'calendar.events.list', via: 'priestess', message: \`Up
             ]
         },
         sendBody: true,
-        specifyBody: "keypair",
         bodyParameters: {
             parameters: [
                 {

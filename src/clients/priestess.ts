@@ -258,6 +258,52 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     },
   },
   {
+    name: "add_note",
+    description: "Save a quick note or todo item for FuuFu.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        content: { type: "string", description: "The note or todo content" },
+      },
+      required: ["content"],
+    },
+  },
+  {
+    name: "list_notes",
+    description: "List FuuFu's saved notes and todos.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        filter: {
+          type: "string",
+          description: "Which notes to return: 'pending' (default), 'done', or 'all'",
+        },
+      },
+    },
+  },
+  {
+    name: "complete_note",
+    description: "Mark a note or todo as done by partial text match.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        match: { type: "string", description: "Partial text of the note to mark as done" },
+      },
+      required: ["match"],
+    },
+  },
+  {
+    name: "delete_note",
+    description: "Delete a note or todo by partial text match.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        match: { type: "string", description: "Partial text of the note to delete" },
+      },
+      required: ["match"],
+    },
+  },
+  {
     name: "remember_note",
     description:
       "Save or update a persistent fact about FuuFu to remember across future conversations. Use this proactively whenever FuuFu shares a preference, habit, goal, routine, or any personal detail worth remembering.",
@@ -404,6 +450,53 @@ async function executeFunction(
         ? results
         : ["No results found — try a more specific query"],
     };
+  }
+
+  if (name === "add_note") {
+    const db = getPool();
+    const result = await db.query(
+      "INSERT INTO priestess_todos (user_id, content) VALUES ($1, $2) RETURNING id",
+      [userId, String(args.content)],
+    );
+    return { ok: true, id: result.rows[0].id };
+  }
+
+  if (name === "list_notes") {
+    const db = getPool();
+    const filter = String(args.filter ?? "pending");
+    const whereClause =
+      filter === "done"
+        ? "done = TRUE"
+        : filter === "all"
+          ? "TRUE"
+          : "done = FALSE";
+    const result = await db.query(
+      `SELECT id, content, done, created_at FROM priestess_todos WHERE user_id = $1 AND ${whereClause} ORDER BY created_at DESC LIMIT 50`,
+      [userId],
+    );
+    return { notes: result.rows };
+  }
+
+  if (name === "complete_note") {
+    const db = getPool();
+    const result = await db.query(
+      `UPDATE priestess_todos SET done = TRUE, updated_at = NOW()
+       WHERE user_id = $1 AND done = FALSE AND content ILIKE $2
+       RETURNING id, content`,
+      [userId, `%${String(args.match)}%`],
+    );
+    if (result.rows.length === 0) return { error: "No matching pending note found." };
+    return { ok: true, updated: result.rows };
+  }
+
+  if (name === "delete_note") {
+    const db = getPool();
+    const result = await db.query(
+      `DELETE FROM priestess_todos WHERE user_id = $1 AND content ILIKE $2 RETURNING id, content`,
+      [userId, `%${String(args.match)}%`],
+    );
+    if (result.rows.length === 0) return { error: "No matching note found." };
+    return { ok: true, deleted: result.rows };
   }
 
   if (name === "remember_note") {

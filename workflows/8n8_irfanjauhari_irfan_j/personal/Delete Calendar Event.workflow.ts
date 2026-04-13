@@ -8,7 +8,7 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 // ──────────────────────────────────────────────────────────────────
 // Property name                    Node type (short)         Flags
 // WebhookTrigger                     webhook                    
-// GetEvents                          googleCalendar             [creds]
+// GetEvents                          googleCalendar             [creds] [alwaysOutput]
 // FindMatch                          code                       [onError→out(1)]
 // UpdateEvent                        googleCalendar             [creds]
 // NotifySuccess                      httpRequest                
@@ -31,7 +31,7 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 @workflow({
     id: "F2VPnuJaEeqNv9cs",
     name: "Delete Calendar Event",
-    active: false,
+    active: true,
     settings: { executionOrder: "v1", callerPolicy: "workflowsFromSameOwner", availableInMCP: false }
 })
 export class DeleteCalendarEventWorkflow {
@@ -63,7 +63,8 @@ export class DeleteCalendarEventWorkflow {
         type: "n8n-nodes-base.googleCalendar",
         version: 1,
         position: [240, 0],
-        credentials: {googleCalendarOAuth2Api:{id:"sjkY1KJUq4GeoDH6",name:"Google Calendar account"}}
+        credentials: {googleCalendarOAuth2Api:{id:"sjkY1KJUq4GeoDH6",name:"Google Calendar account"}},
+        alwaysOutputData: true
     })
     GetEvents = {
         operation: "getAll",
