@@ -72,7 +72,14 @@ async function main(): Promise<void> {
     if (config.aiChannelId && config.aiUserId) {
       startPriestessScheduler(client, config.aiChannelId, config.aiUserId)
     }
-    startWebhookServer(client, config)
+    const webhookServer = startWebhookServer(client, config)
+
+    process.on('SIGTERM', () => {
+      console.log('Received SIGTERM, shutting down.')
+      webhookServer.close()
+      client.destroy()
+      process.exit(0)
+    })
   })
 
   client.on(Events.MessageCreate, async (message) => {
@@ -147,12 +154,6 @@ async function main(): Promise<void> {
         await interaction.reply(payload)
       }
     }
-  })
-
-  process.on('SIGTERM', () => {
-    console.log('Received SIGTERM, shutting down.')
-    client.destroy()
-    process.exit(0)
   })
 
   await client.login(config.discord.token)

@@ -46,19 +46,20 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
   const sub = interaction.options.getSubcommand()
 
   if (sub === 'list') {
-    await interaction.deferReply()
+    await interaction.deferReply({ ephemeral: true })
     const db = getPool()
-    const result = await db.query('SELECT name, webhook_url, description, created_at FROM n8n_workflows ORDER BY name ASC')
+    const result = await db.query('SELECT name, description FROM n8n_workflows ORDER BY name ASC')
     if (result.rows.length === 0) {
       await interaction.editReply('No workflows registered. Use `/n8n register` to add one.')
       return
     }
-    const lines = (result.rows as { name: string; webhook_url: string; description: string | null; created_at: Date }[]).map(row =>
-      `**${row.name}**${row.description ? ` — ${row.description}` : ''}\n\`${row.webhook_url}\``
+    const lines = (result.rows as { name: string; description: string | null }[]).map(row =>
+      `**${row.name}**${row.description ? ` — ${row.description}` : ''}`
     )
+    const description = lines.join('\n')
     const embed = new EmbedBuilder()
       .setTitle('Registered n8n Workflows')
-      .setDescription(lines.join('\n\n'))
+      .setDescription(description.length > 4000 ? description.slice(0, 4000) + '\n…' : description)
       .setColor(0x5865f2)
       .setTimestamp()
     await interaction.editReply({ embeds: [embed] })
@@ -74,6 +75,10 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
     await interaction.deferReply({ ephemeral: true })
     const name = interaction.options.getString('name', true).trim().toLowerCase().replace(/\s+/g, '_')
     const url = interaction.options.getString('url', true).trim()
+    try { new URL(url) } catch {
+      await interaction.editReply('Invalid URL format.')
+      return
+    }
     const description = interaction.options.getString('description') ?? null
     const db = getPool()
     await db.query(`
@@ -87,7 +92,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
 
   if (sub === 'trigger') {
     await interaction.deferReply()
-    const name = interaction.options.getString('name', true).trim()
+    const name = interaction.options.getString('name', true).trim().toLowerCase().replace(/\s+/g, '_')
     const rawPayload = interaction.options.getString('payload')
     let payload: Record<string, unknown> | undefined
     if (rawPayload) {
