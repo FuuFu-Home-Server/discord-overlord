@@ -47,6 +47,8 @@ describe('loadConfig', () => {
     expect(config.alertsChannelId).toBe('alertchan')
     expect(config.worklog.apiUrl).toBe('https://example.com/api')
     expect(config.worklog.apiKey).toBe('secret')
+    expect(config.n8nWebhookSecret).toBe('testsecret')
+    expect(config.webhookPort).toBe(3001)
   })
 
   for (const key of REQUIRED_VARS) {
