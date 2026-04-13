@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "activeInstanceId": "instance-d53103bf",
+  "instances": [
+    {
+      "id": "instance-d53103bf",
+      "name": "8n8.irfanjauhari.com · Irfan Jauhari",
+      "host": "https://8n8.irfanjauhari.com",
+      "syncFolder": "workflows",
+      "projectId": "personal",
+      "projectName": "Personal",
+      "instanceIdentifier": "8n8_irfanjauhari_irfan_j",
+      "workflowDir": "workflows/8n8_irfanjauhari_irfan_j/personal",
+      "verification": {
+        "status": "verified",
+        "normalizedHost": "https://8n8.irfanjauhari.com",
+        "userId": "f37b584e-5d25-4188-aea1-c5271185d2d0",
+        "userName": "Irfan Jauhari",
+        "userEmail": "kangrykong123@gmail.com",
+        "lastCheckedAt": "2026-04-13T03:17:04.944Z"
+      }
+    }
+  ],
+  "host": "https://8n8.irfanjauhari.com",
+  "syncFolder": "workflows",
+  "projectId": "personal",
+  "projectName": "Personal",
+  "instanceIdentifier": "8n8_irfanjauhari_irfan_j",
+  "workflowDir": "workflows/8n8_irfanjauhari_irfan_j/personal"
+}
