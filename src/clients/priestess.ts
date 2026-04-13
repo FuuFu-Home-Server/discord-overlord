@@ -341,11 +341,12 @@ async function executeFunction(name: string, args: Record<string, any>): Promise
       const raw = readFileSync(schemasPath, 'utf8')
       schemas = (JSON.parse(raw) as { workflows: Record<string, unknown> }).workflows ?? {}
     } catch { /* schemas file missing or malformed — degrade gracefully */ }
+    const schemasLower = Object.fromEntries(Object.entries(schemas).map(([k, v]) => [k.toLowerCase().replace(/\s+/g, '_'), v]))
     return {
       workflows: result.rows.map((r: { name: string; description: string | null }) => ({
         name: r.name,
         description: r.description ?? '',
-        payload_schema: schemas[r.name] ?? {},
+        payload_schema: schemas[r.name] ?? schemasLower[r.name.toLowerCase().replace(/\s+/g, '_')] ?? {},
       }))
     }
   }

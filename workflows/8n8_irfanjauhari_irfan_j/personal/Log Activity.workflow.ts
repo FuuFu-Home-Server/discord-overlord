@@ -51,7 +51,7 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
     id: "QCKpB3rjHFa7WunvfC9g8",
     name: "Log Activity",
     active: true,
-    settings: { executionOrder: "v1", availableInMCP: false }
+    settings: { executionOrder: "v1", availableInMCP: false, callerPolicy: "workflowsFromSameOwner" }
 })
 export class LogActivityWorkflow {
 

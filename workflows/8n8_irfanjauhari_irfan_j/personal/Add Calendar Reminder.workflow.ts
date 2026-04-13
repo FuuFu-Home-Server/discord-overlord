@@ -130,7 +130,7 @@ return [{
             parameters: [
                 {
                     name: "Authorization",
-                    value: "=Bearer {{ $env.N8N_WEBHOOK_SECRET }}"
+                    value: "=Bearer ae9a28762250d7b72812114db22f52a3"
                 },
                 {
                     name: "Content-Type",
@@ -165,7 +165,7 @@ return [{
             parameters: [
                 {
                     name: "Authorization",
-                    value: "=Bearer {{ $env.N8N_WEBHOOK_SECRET }}"
+                    value: "=Bearer ae9a28762250d7b72812114db22f52a3"
                 },
                 {
                     name: "Content-Type",
