@@ -125,16 +125,17 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
     const name = interaction.options.getString('name', true).trim()
     const db = getPool()
     const existing = await db.query('SELECT payload_schema FROM n8n_workflows WHERE LOWER(name) = LOWER($1)', [name])
-    if (existing.rowCount === 0) {
+    if (existing.rows.length === 0) {
       await interaction.reply({ content: `Workflow **${name}** not found.`, ephemeral: true })
       return
     }
     const currentSchema = existing.rows[0].payload_schema
       ? JSON.stringify(existing.rows[0].payload_schema, null, 2)
       : '{}'
+    const title = `Schema — ${name}`.slice(0, 45)
     const modal = new ModalBuilder()
       .setCustomId(`n8n:set-schema:${name}`)
-      .setTitle(`Schema — ${name}`)
+      .setTitle(title)
     const input = new TextInputBuilder()
       .setCustomId('schema')
       .setLabel('Payload schema (JSON)')
