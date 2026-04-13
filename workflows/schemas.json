@@ -48,6 +48,40 @@
           "description": "location of the event e.g. a place name or address"
         }
       ]
+    },
+    "List Calendar Events": {
+      "fields": [
+        {
+          "name": "days",
+          "type": "number",
+          "required": false,
+          "default": 7,
+          "description": "how many days ahead to look (default 7)"
+        }
+      ]
+    },
+    "Delete Calendar Event": {
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "required": true,
+          "description": "title or partial title of the event to update (case-insensitive match)"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": false,
+          "default": "cancel",
+          "description": "what to mark the event as: 'cancel' adds [CANCELED] prefix, 'done' adds [DONE] prefix"
+        },
+        {
+          "name": "date",
+          "type": "string",
+          "required": false,
+          "description": "ISO 8601 date to narrow the match if multiple events share the same title e.g. 2026-04-15"
+        }
+      ]
     }
   }
 }
