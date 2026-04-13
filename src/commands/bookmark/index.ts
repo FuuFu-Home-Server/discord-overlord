@@ -79,7 +79,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
     }
 
     const result = await executeTriggerWorkflow(
-      'bookmark-update',
+      'Bookmark Update',
       { user_id: interaction.user.id, name, progress, status, notes },
       process.env.N8N_WEBHOOK_SECRET ?? ''
     )
@@ -99,7 +99,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
     await interaction.deferReply({ ephemeral: true })
     const name = interaction.options.getString('name', true)
     const result = await executeTriggerWorkflow(
-      'bookmark-delete',
+      'Bookmark Delete',
       { user_id: interaction.user.id, name },
       process.env.N8N_WEBHOOK_SECRET ?? ''
     )
@@ -130,7 +130,7 @@ async function modalSubmit(interaction: ModalSubmitInteraction): Promise<void> {
   }
 
   const result = await executeTriggerWorkflow(
-    'bookmark-add',
+    'Bookmark Add',
     { user_id: interaction.user.id, name, type, status, progress, notes },
     process.env.N8N_WEBHOOK_SECRET ?? ''
   )

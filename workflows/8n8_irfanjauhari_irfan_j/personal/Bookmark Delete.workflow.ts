@@ -19,7 +19,7 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 
 @workflow({
   id: 'REPLACE_AFTER_IMPORT_3',
-  name: 'bookmark-delete',
+  name: 'Bookmark Delete',
   active: true,
   settings: { executionOrder: 'v1', callerPolicy: 'workflowsFromSameOwner', availableInMCP: false },
 })

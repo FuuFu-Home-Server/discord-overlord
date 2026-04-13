@@ -19,7 +19,7 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 
 @workflow({
   id: 'REPLACE_AFTER_IMPORT_2',
-  name: 'bookmark-update',
+  name: 'Bookmark Update',
   active: true,
   settings: { executionOrder: 'v1', callerPolicy: 'workflowsFromSameOwner', availableInMCP: false },
 })
