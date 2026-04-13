@@ -15,6 +15,8 @@ import dockerCommand, { setAdminRoleId as setDockerAdminRoleId } from './command
 import systemCommand, { setAdminRoleId as setSystemAdminRoleId } from './commands/system/index'
 import worklogCommand from './commands/worklog/index'
 import caddyCommand, { setAdminRoleId as setCaddyAdminRoleId } from './commands/caddy/index'
+import { startWebhookServer } from './clients/webhook-server'
+import n8nCommand, { setAdminRoleId as setN8nAdminRoleId } from './commands/n8n/index'
 
 function splitMessage(text: string, limit = 2000): string[] {
   if (text.length <= limit) return [text]
@@ -40,12 +42,14 @@ async function main(): Promise<void> {
   setDockerAdminRoleId(config.roles.dockerAdminRoleId)
   setSystemAdminRoleId(config.roles.dockerAdminRoleId)
   setCaddyAdminRoleId(config.roles.dockerAdminRoleId)
+  setN8nAdminRoleId(config.roles.dockerAdminRoleId)
   worklogCommand.setWorklogConfig(config.worklog.apiUrl, config.worklog.apiKey, config.roles.worklogRoleId)
 
   // Suppress unused-variable warnings — imports are side-effectful (module cache priming)
   void dockerCommand
   void systemCommand
   void caddyCommand
+  void n8nCommand
 
   const commands = new Collection<string, Command>()
   const loaded = await loadCommands(path.join(__dirname, 'commands'))
@@ -68,6 +72,7 @@ async function main(): Promise<void> {
     if (config.aiChannelId && config.aiUserId) {
       startPriestessScheduler(client, config.aiChannelId, config.aiUserId)
     }
+    startWebhookServer(client, config)
   })
 
   client.on(Events.MessageCreate, async (message) => {
