@@ -69,6 +69,8 @@ async function dispatchEvent(client: Client, config: Config, payload: N8nEvent):
   })
 }
 
+const MAX_BYTES = 1_048_576
+
 export function startWebhookServer(client: Client, config: Config): http.Server {
   const server = http.createServer((req, res) => {
     if (req.method !== 'POST' || req.url !== '/webhook') {
@@ -76,7 +78,6 @@ export function startWebhookServer(client: Client, config: Config): http.Server 
       return
     }
 
-    const MAX_BYTES = 1_048_576
     let body = ''
     let bytes = 0
     req.on('data', (chunk: Buffer) => {
@@ -89,6 +90,7 @@ export function startWebhookServer(client: Client, config: Config): http.Server 
       body += chunk.toString()
     })
     req.on('end', () => {
+      if (res.writableEnded) return
       const result = validateRequest(body, req.headers['authorization'], config.n8nWebhookSecret)
       if (result.status !== 200 || !result.payload) {
         res.writeHead(result.status, { 'Content-Type': 'application/json' })
@@ -100,6 +102,8 @@ export function startWebhookServer(client: Client, config: Config): http.Server 
       void dispatchEvent(client, config, result.payload)
     })
   })
+
+  server.on('error', (err) => console.error('webhook-server error:', err))
 
   server.listen(config.webhookPort, () => {
     console.log(`Webhook server listening on :${config.webhookPort}`)
