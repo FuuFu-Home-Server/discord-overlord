@@ -18,7 +18,7 @@ function formatBytes(bytes: number): string {
 async function sendProactive(client: Client, channelId: string, userId: string, prompt: string): Promise<void> {
   const channel = client.channels.cache.get(channelId)
   if (!channel?.isSendable()) return
-  const reply = await chat(userId, prompt)
+  const { reply } = await chat(userId, prompt)
   await channel.send(`<@${userId}> ${reply}`)
 }
 
