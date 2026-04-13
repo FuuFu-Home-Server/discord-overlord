@@ -111,6 +111,7 @@ return [{
         start: "={{ $json.start }}",
         end: "={{ $json.end }}",
         additionalFields: {
+            summary: "={{ $json.title }}",
             description: "={{ $json.description }}"
         }
     };

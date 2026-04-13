@@ -43,6 +43,7 @@ export function validateRequest(body: string, authHeader: string | undefined, se
       event: p.event,
       title: typeof p.title === 'string' ? p.title : undefined,
       message: p.message,
+      via: p.via === 'priestess' ? 'priestess' : undefined,
       data: p.data != null ? (p.data as Record<string, unknown>) : undefined,
     },
   }
@@ -54,7 +55,7 @@ async function dispatchEvent(client: Client, config: Config, payload: N8nEvent):
   if (!channel?.isSendable()) return
 
   if (payload.via === 'priestess' && config.aiUserId) {
-    const { reply } = await chat(config.aiUserId, `[SYSTEM: n8n workflow event — ${payload.event}. ${payload.message}. Inform FuuFu briefly and naturally.]`)
+    const { reply } = await chat(config.aiUserId, `[SYSTEM: automation result — ${payload.message}. Relay this to FuuFu in one short, warm sentence. No raw data, no ISO dates — use human-readable time if needed.]`)
     await channel.send(`<@${config.aiUserId}> ${reply}`).catch((err: Error) => {
       console.error('webhook-server: failed to send priestess reply:', err)
     })
