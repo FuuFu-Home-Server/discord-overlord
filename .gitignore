@@ -2,8 +2,7 @@ node_modules/
 dist/
 .env
 *.js.map
-docs/*
-!docs/superpowers/
+docs/
 .claude/
 .env.local
 idea.txt
