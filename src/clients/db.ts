@@ -72,4 +72,19 @@ export async function initDb(): Promise<void> {
     )
   `)
   await db.query(`CREATE INDEX IF NOT EXISTS priestess_todos_user_id_idx ON priestess_todos (user_id, done)`)
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS bookmarks (
+      id         SERIAL PRIMARY KEY,
+      user_id    TEXT NOT NULL,
+      name       TEXT NOT NULL,
+      type       TEXT NOT NULL,
+      status     TEXT NOT NULL,
+      progress   TEXT,
+      notes      TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (user_id, name)
+    )
+  `)
+  await db.query(`CREATE INDEX IF NOT EXISTS bookmarks_user_id_idx ON bookmarks (user_id)`)
 }
