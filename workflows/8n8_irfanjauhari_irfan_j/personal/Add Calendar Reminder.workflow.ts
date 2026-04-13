@@ -66,13 +66,13 @@ export class AddCalendarReminderWorkflow {
         jsCode: `const raw = $input.first().json;
 const body = raw.body ?? raw;
 
-const title = body.title ?? 'Reminder';
-const rawDatetime = body.datetime;
-const description = body.description ?? '';
-const durationMinutes = typeof body.duration_minutes === 'number' ? body.duration_minutes : 30;
+const title = body.title ?? body.summary ?? body.name ?? 'Reminder';
+const rawDatetime = body.dateTime ?? body.datetime ?? body.date_time ?? body.date ?? body.start ?? body.start_time ?? body.time ?? body.scheduled_time;
+const description = body.description ?? body.notes ?? body.message ?? '';
+const durationMinutes = typeof (body.duration_minutes ?? body.duration) === 'number' ? (body.duration_minutes ?? body.duration) : 30;
 
 if (!rawDatetime) {
-  throw new Error('Missing required field: datetime (ISO 8601 string)');
+  throw new Error(\`Missing datetime field. Received keys: \${Object.keys(body).join(', ')}\`);
 }
 
 const start = new Date(rawDatetime);

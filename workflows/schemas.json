@@ -23,7 +23,7 @@
           "description": "event title shown in Google Calendar"
         },
         {
-          "name": "datetime",
+          "name": "dateTime",
           "type": "string",
           "required": true,
           "description": "absolute ISO 8601 start time in WIB (UTC+7) e.g. 2026-04-14T10:00:00+07:00 — never pass relative strings like 'tomorrow'"

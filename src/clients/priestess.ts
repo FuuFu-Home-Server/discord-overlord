@@ -245,7 +245,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: 'trigger_n8n_workflow',
-    description: 'Trigger a registered n8n automation workflow by name. Always call list_n8n_workflows first to discover available workflows and their required payloads. IMPORTANT: always resolve relative dates ("tomorrow", "next Monday", "in 2 hours") to absolute ISO 8601 strings in WIB (UTC+7) before passing them in the payload — never pass natural language date strings. After triggering, tell FuuFu you have submitted the request and that he will be notified of the result. Do NOT claim the workflow succeeded or failed — the outcome arrives via a separate callback.',
+    description: 'Trigger a registered n8n automation workflow by name. Always call list_n8n_workflows first to discover available workflows and their required payloads. CRITICAL: construct the payload using ONLY the exact field names listed in the workflow\'s payload_schema.fields array — do NOT rename, abbreviate, translate, or substitute them. For example if the schema says "dateTime", send "dateTime" — not "date", "due_date", "datetime", "start_time", or any other variation. IMPORTANT: always resolve relative dates ("tomorrow", "next Monday", "in 2 hours") to absolute ISO 8601 strings in WIB (UTC+7) before passing them in the payload — never pass natural language date strings. After triggering, tell FuuFu you have submitted the request and that he will be notified of the result. Do NOT claim the workflow succeeded or failed — the outcome arrives via a separate callback.',
     parametersJsonSchema: {
       type: 'object',
       properties: {
@@ -432,8 +432,10 @@ export async function chat(userId: string, message: string): Promise<ChatResult>
     { role: 'user', parts: [{ text: message }] },
   ]
 
+  const nowWIB = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Jakarta', dateStyle: 'full', timeStyle: 'long' })
+  const systemInstruction = `${persona}\n\nCurrent date and time (WIB, UTC+7): ${nowWIB}`
   const tools = [{ functionDeclarations: FUNCTION_DECLARATIONS }]
-  const config = { systemInstruction: persona, tools }
+  const config = { systemInstruction, tools }
 
   let response = await getAI().models.generateContent({ model: MODEL, contents, config })
 
