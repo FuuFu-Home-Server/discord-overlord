@@ -34,7 +34,7 @@ const data = new SlashCommandBuilder()
         opt.setName('url').setDescription('n8n webhook URL').setRequired(true)
       )
       .addStringOption(opt =>
-        opt.setName('description').setDescription('What this workflow does (optional)').setRequired(false)
+        opt.setName('description').setDescription('Payload contract — what this workflow does and what fields it accepts').setRequired(true)
       )
   )
   .addSubcommand(sub =>
@@ -79,7 +79,7 @@ async function execute(interaction: ChatInputCommandInteraction): Promise<void> 
       await interaction.editReply('Invalid URL format.')
       return
     }
-    const description = interaction.options.getString('description') ?? null
+    const description = interaction.options.getString('description', true).trim()
     const db = getPool()
     await db.query(`
       INSERT INTO n8n_workflows (name, webhook_url, description, updated_at)

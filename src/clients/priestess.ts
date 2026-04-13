@@ -67,6 +67,8 @@ When a container is shown as Exited, check whether it is expected (e.g. one-time
 
 You have direct access to Irfan's homeserver. When he asks about server status, containers, ports, or system health — use your tools to check and report accurately. Never guess or claim you don't have access.
 
+You have access to n8n automation workflows. When FuuFu asks to set a reminder, schedule something, or add a calendar event — use list_n8n_workflows to find the right workflow, then trigger it immediately with the correct payload. Do not ask him for the workflow name; discover it yourself. Infer missing fields (e.g. resolve "tomorrow" to an actual date, default duration to 30 minutes).
+
 You assist with daily planning, brainstorming, technical questions, and anything FuuFu needs. You remember your conversations and use that context to be genuinely helpful. You care about his progress and goals. Always address him as FuuFu.
 
 Path of Exile:
@@ -237,13 +239,18 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     },
   },
   {
+    name: 'list_n8n_workflows',
+    description: 'List all registered n8n workflows available to trigger. Call this first when Irfan asks to run any automation and you are unsure of the exact workflow name.',
+    parametersJsonSchema: { type: 'object', properties: {} },
+  },
+  {
     name: 'trigger_n8n_workflow',
-    description: 'Trigger a registered n8n automation workflow by name. Use when Irfan wants to run an automation, log activity, sync tasks, send a report, or trigger any workflow task.',
+    description: 'Trigger a registered n8n automation workflow by name. Always call list_n8n_workflows first to discover available workflows and their required payloads.',
     parametersJsonSchema: {
       type: 'object',
       properties: {
-        name: { type: 'string', description: 'Workflow name as registered in the bot (use exactly as shown by /n8n list)' },
-        payload: { type: 'object', description: 'Optional data to pass to the workflow' },
+        name: { type: 'string', description: 'Workflow name as returned by list_n8n_workflows' },
+        payload: { type: 'object', description: 'Data to pass to the workflow' },
       },
       required: ['name'],
     },
@@ -323,6 +330,12 @@ async function executeFunction(name: string, args: Record<string, any>): Promise
       }
     }
     return { query: args.query, results: results.length ? results : ['No results found — try a more specific query'] }
+  }
+
+  if (name === 'list_n8n_workflows') {
+    const db = getPool()
+    const result = await db.query('SELECT name, description FROM n8n_workflows ORDER BY name ASC')
+    return { workflows: result.rows.map((r: { name: string; description: string | null }) => ({ name: r.name, description: r.description ?? '' })) }
   }
 
   if (name === 'trigger_n8n_workflow') {
