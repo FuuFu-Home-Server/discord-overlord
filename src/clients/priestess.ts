@@ -357,6 +357,58 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: ["name"],
     },
   },
+  {
+    name: 'add_bookmark',
+    description: 'Save a new media bookmark for FuuFu. Required: name, type (manhwa/manga/manhua/anime/novel), status (reading/watching/completed/dropped/on_hold/plan_to_start), progress (e.g. "Ch. 100", "Ep. 12"). Optional: notes. Always gather all required fields conversationally before calling — never call with missing required fields.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        name:     { type: 'string', description: 'Title of the media' },
+        type:     { type: 'string', description: 'manhwa | manga | manhua | anime | novel' },
+        status:   { type: 'string', description: 'reading | watching | completed | dropped | on_hold | plan_to_start' },
+        progress: { type: 'string', description: 'Current chapter or episode, e.g. "Ch. 100" or "Ep. 12"' },
+        notes:    { type: 'string', description: 'Optional notes, review, or drop reason' },
+      },
+      required: ['name', 'type', 'status', 'progress'],
+    },
+  },
+  {
+    name: 'update_bookmark',
+    description: 'Update an existing bookmark for FuuFu. Requires the exact name. At least one of progress, status, or notes must be provided.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        name:     { type: 'string', description: 'Exact bookmark name to update' },
+        progress: { type: 'string', description: 'New chapter or episode' },
+        status:   { type: 'string', description: 'New status' },
+        notes:    { type: 'string', description: 'New or updated notes' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'delete_bookmark',
+    description: 'Delete a bookmark permanently. Always confirm with FuuFu before calling this.',
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Exact bookmark name to delete' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'get_bookmarks',
+    description: "Retrieve FuuFu's bookmarks. All filters are optional — omit to get all.",
+    parametersJsonSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', description: 'Filter by status' },
+        type:   { type: 'string', description: 'Filter by type' },
+        name:   { type: 'string', description: 'Partial name search (case-insensitive)' },
+      },
+    },
+  },
 ];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -527,6 +579,59 @@ async function executeFunction(
       workflowPayload,
       process.env.N8N_WEBHOOK_SECRET ?? "",
     );
+  }
+
+  if (name === 'add_bookmark') {
+    const db = getPool()
+    await db.query(
+      `INSERT INTO bookmarks (user_id, name, type, status, progress, notes)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (user_id, name) DO UPDATE
+         SET type = $3, status = $4, progress = $5, notes = $6, updated_at = NOW()`,
+      [userId, String(args.name), String(args.type), String(args.status), args.progress ?? null, args.notes ?? null]
+    )
+    return { ok: true, name: args.name }
+  }
+
+  if (name === 'update_bookmark') {
+    const db = getPool()
+    const sets: string[] = []
+    const vals: unknown[] = [userId, String(args.name)]
+    if (args.progress !== undefined) { sets.push(`progress = $${vals.length + 1}`); vals.push(String(args.progress)) }
+    if (args.status !== undefined)   { sets.push(`status = $${vals.length + 1}`);   vals.push(String(args.status)) }
+    if (args.notes !== undefined)    { sets.push(`notes = $${vals.length + 1}`);     vals.push(String(args.notes)) }
+    if (sets.length === 0) return { error: 'Nothing to update.' }
+    sets.push(`updated_at = NOW()`)
+    const result = await db.query(
+      `UPDATE bookmarks SET ${sets.join(', ')} WHERE user_id = $1 AND name = $2 RETURNING name`,
+      vals
+    )
+    if (result.rows.length === 0) return { error: `Bookmark "${args.name}" not found.` }
+    return { ok: true, name: args.name }
+  }
+
+  if (name === 'delete_bookmark') {
+    const db = getPool()
+    const result = await db.query(
+      `DELETE FROM bookmarks WHERE user_id = $1 AND name = $2 RETURNING name`,
+      [userId, String(args.name)]
+    )
+    if (result.rows.length === 0) return { error: `Bookmark "${args.name}" not found.` }
+    return { ok: true, deleted: args.name }
+  }
+
+  if (name === 'get_bookmarks') {
+    const db = getPool()
+    const conditions: string[] = ['user_id = $1']
+    const vals: unknown[] = [userId]
+    if (args.status) { conditions.push(`status = $${vals.length + 1}`); vals.push(String(args.status)) }
+    if (args.type)   { conditions.push(`type = $${vals.length + 1}`);   vals.push(String(args.type)) }
+    if (args.name)   { conditions.push(`name ILIKE $${vals.length + 1}`); vals.push(`%${String(args.name)}%`) }
+    const result = await db.query(
+      `SELECT name, type, status, progress, notes, updated_at FROM bookmarks WHERE ${conditions.join(' AND ')} ORDER BY updated_at DESC`,
+      vals
+    )
+    return { bookmarks: result.rows }
   }
 
   return { error: `Unknown function: ${name}` };
