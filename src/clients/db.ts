@@ -39,4 +39,14 @@ export async function initDb(): Promise<void> {
     )
   `)
   await db.query(`CREATE INDEX IF NOT EXISTS ai_token_usage_user_id_idx ON ai_token_usage (user_id, created_at DESC)`)
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS n8n_workflows (
+      id          SERIAL PRIMARY KEY,
+      name        TEXT NOT NULL UNIQUE,
+      webhook_url TEXT NOT NULL,
+      description TEXT,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `)
 }
