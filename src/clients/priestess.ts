@@ -328,7 +328,7 @@ async function executeFunction(name: string, args: Record<string, any>): Promise
   if (name === 'trigger_n8n_workflow') {
     const workflowName = String(args.name)
     const workflowPayload = args.payload as Record<string, unknown> | undefined
-    return executeTriggerWorkflow(workflowName, workflowPayload)
+    return executeTriggerWorkflow(workflowName, workflowPayload, process.env.N8N_WEBHOOK_SECRET ?? '')
   }
 
   return { error: `Unknown function: ${name}` }

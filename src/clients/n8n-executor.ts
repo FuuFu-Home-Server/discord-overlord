@@ -3,8 +3,10 @@ import { getPool } from './db'
 
 export async function executeTriggerWorkflow(
   name: string,
-  payload: Record<string, unknown> | undefined
+  payload: Record<string, unknown> | undefined,
+  secret: string
 ): Promise<Record<string, unknown>> {
+  if (!name.trim()) return { error: 'Workflow name must not be empty.' }
   const db = getPool()
   const result = await db.query('SELECT webhook_url FROM n8n_workflows WHERE name = $1', [name])
   if (!result.rows[0]) {
@@ -14,7 +16,7 @@ export async function executeTriggerWorkflow(
   try {
     await axios.post(webhook_url, payload ?? {}, {
       headers: {
-        Authorization: `Bearer ${process.env.N8N_WEBHOOK_SECRET ?? ''}`,
+        Authorization: `Bearer ${secret}`,
         'Content-Type': 'application/json',
       },
       timeout: 10000,
