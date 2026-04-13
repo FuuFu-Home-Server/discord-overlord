@@ -1,11 +1,13 @@
 import http from 'http'
 import { Client, EmbedBuilder } from 'discord.js'
 import type { Config } from '../config'
+import { chat } from './priestess'
 
 export interface N8nEvent {
   event: string
   title?: string
   message: string
+  via?: 'priestess'
   data?: Record<string, unknown>
 }
 
@@ -50,6 +52,14 @@ async function dispatchEvent(client: Client, config: Config, payload: N8nEvent):
   if (!config.aiChannelId) return
   const channel = client.channels.cache.get(config.aiChannelId)
   if (!channel?.isSendable()) return
+
+  if (payload.via === 'priestess' && config.aiUserId) {
+    const { reply } = await chat(config.aiUserId, `[SYSTEM: n8n workflow event — ${payload.event}. ${payload.message}. Inform FuuFu briefly and naturally.]`)
+    await channel.send(`<@${config.aiUserId}> ${reply}`).catch((err: Error) => {
+      console.error('webhook-server: failed to send priestess reply:', err)
+    })
+    return
+  }
 
   const embed = new EmbedBuilder()
     .setTitle(payload.title ?? payload.event)
