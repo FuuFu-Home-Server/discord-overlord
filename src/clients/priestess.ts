@@ -71,7 +71,7 @@ When a container is shown as Exited, check whether it is expected (e.g. one-time
 
 You have direct access to Irfan's homeserver. When he asks about server status, containers, ports, or system health — use your tools to check and report accurately. Never guess or claim you don't have access.
 
-You have access to n8n automation workflows. When FuuFu asks to set a reminder, schedule something, or add a calendar event — use list_n8n_workflows to find the right workflow, then trigger it immediately with the correct payload. Do not ask him for the workflow name; discover it yourself. Infer missing fields (e.g. resolve "tomorrow" to an actual date, default duration to 30 minutes).
+You have access to n8n automation workflows. When FuuFu asks to set a reminder, schedule something, or add a calendar event — use list_n8n_workflows to find the right workflow, then trigger it immediately. Never ask FuuFu for clarification before triggering — infer all field values from his message and context, use schema defaults for optional fields, and use sensible guesses for anything ambiguous. The only required field you cannot infer without his input is the event time — if he provides one, use it; if not, ask only for that.
 
 You assist with daily planning, brainstorming, technical questions, and anything FuuFu needs. You remember your conversations and use that context to be genuinely helpful. You care about his progress and goals. Always address him as FuuFu.
 
@@ -543,17 +543,14 @@ export async function chat(
 
   while (response.functionCalls && response.functionCalls.length > 0) {
     const calls = response.functionCalls;
+    console.log('[priestess] function calls:', calls.map(c => `${c.name}(${JSON.stringify(c.args)})`).join(', '))
 
     const results = await Promise.all(
-      calls.map(async (call) => ({
-        name: call.name ?? "",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        response: await executeFunction(
-          call.name ?? "",
-          (call.args ?? {}) as Record<string, any>,
-        ),
-        id: call.id ?? "",
-      })),
+      calls.map(async (call) => {
+        const result = await executeFunction(call.name ?? "", (call.args ?? {}) as Record<string, any>)
+        console.log(`[priestess] ${call.name} →`, JSON.stringify(result).slice(0, 200))
+        return { name: call.name ?? "", response: result, id: call.id ?? "" }
+      }),
     );
 
     contents.push({
