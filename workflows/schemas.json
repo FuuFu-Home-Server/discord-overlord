@@ -40,6 +40,12 @@
           "required": false,
           "default": 30,
           "description": "event duration in minutes"
+        },
+        {
+          "name": "location",
+          "type": "string",
+          "required": false,
+          "description": "location of the event e.g. a place name or address"
         }
       ]
     }

@@ -70,6 +70,7 @@ const title = body.title ?? body.summary ?? body.name ?? 'Reminder';
 const rawDatetime = body.dateTime ?? body.datetime ?? body.date_time ?? body.date ?? body.start ?? body.start_time ?? body.time ?? body.scheduled_time;
 const description = body.description ?? body.notes ?? body.message ?? '';
 const durationMinutes = typeof (body.duration_minutes ?? body.duration) === 'number' ? (body.duration_minutes ?? body.duration) : 30;
+const location = body.location ?? '';
 
 if (!rawDatetime) {
   throw new Error(\`Missing datetime field. Received keys: \${Object.keys(body).join(', ')}\`);
@@ -86,6 +87,7 @@ return [{
   json: {
     title,
     description,
+    location,
     start: start.toISOString(),
     end: end.toISOString(),
   }
@@ -112,7 +114,8 @@ return [{
         end: "={{ $json.end }}",
         additionalFields: {
             summary: "={{ $json.title }}",
-            description: "={{ $json.description }}"
+            description: "={{ $json.description }}",
+            location: "={{ $json.location }}"
         }
     };
 
