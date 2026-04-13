@@ -25,6 +25,9 @@ export function validateRequest(body: string, authHeader: string | undefined, se
   } catch {
     return { status: 400, error: 'Invalid JSON' }
   }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return { status: 400, error: 'Body must be a JSON object' }
+  }
   const p = parsed as Record<string, unknown>
   if (typeof p.event !== 'string' || !p.event) {
     return { status: 400, error: 'Missing required field: event' }
@@ -66,15 +69,25 @@ async function dispatchEvent(client: Client, config: Config, payload: N8nEvent):
   })
 }
 
-export function startWebhookServer(client: Client, config: Config): void {
+export function startWebhookServer(client: Client, config: Config): http.Server {
   const server = http.createServer((req, res) => {
     if (req.method !== 'POST' || req.url !== '/webhook') {
       res.writeHead(404).end()
       return
     }
 
+    const MAX_BYTES = 1_048_576
     let body = ''
-    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    let bytes = 0
+    req.on('data', (chunk: Buffer) => {
+      bytes += chunk.length
+      if (bytes > MAX_BYTES) {
+        res.writeHead(413).end()
+        req.destroy()
+        return
+      }
+      body += chunk.toString()
+    })
     req.on('end', () => {
       const result = validateRequest(body, req.headers['authorization'], config.n8nWebhookSecret)
       if (result.status !== 200 || !result.payload) {
@@ -91,4 +104,5 @@ export function startWebhookServer(client: Client, config: Config): void {
   server.listen(config.webhookPort, () => {
     console.log(`Webhook server listening on :${config.webhookPort}`)
   })
+  return server
 }
