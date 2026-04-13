@@ -522,9 +522,12 @@ export async function chat(
   let promptTokens = response.usageMetadata?.promptTokenCount ?? 0;
   let outputTokens = response.usageMetadata?.candidatesTokenCount ?? 0;
 
+  const toolCallLog: string[] = []
+
   while (response.functionCalls && response.functionCalls.length > 0) {
     const calls = response.functionCalls;
     console.log('[priestess] function calls:', calls.map(c => `${c.name}(${JSON.stringify(c.args)})`).join(', '))
+    toolCallLog.push(...calls.map(c => `${c.name}(${JSON.stringify(c.args)})`))
 
     const results = await Promise.all(
       calls.map(async (call) => {
@@ -554,11 +557,14 @@ export async function chat(
 
   const reply = response.text?.trim() || "_(no response)_";
   const totalTokens = promptTokens + outputTokens;
+  const savedReply = toolCallLog.length > 0
+    ? `[tool_calls: ${toolCallLog.join('; ')}]\n${reply}`
+    : reply
 
   const db = getPool();
   await Promise.all([
     saveMessage(userId, "user", message),
-    saveMessage(userId, "model", reply),
+    saveMessage(userId, "model", savedReply),
     db.query(
       "INSERT INTO ai_token_usage (user_id, prompt_tokens, output_tokens, total_tokens) VALUES ($1, $2, $3, $4)",
       [userId, promptTokens, outputTokens, totalTokens],
