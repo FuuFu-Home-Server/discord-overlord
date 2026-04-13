@@ -64,9 +64,6 @@ export class AddCalendarReminderWorkflow {
     })
     PrepareEvent = {
         jsCode: `const raw = $input.first().json;
-// DEBUG — remove after confirming structure
-return [{ json: { debug_raw: raw } }];
-
 const body = raw.body ?? raw;
 
 const title = body.title ?? 'Reminder';
@@ -127,7 +124,7 @@ return [{
     })
     NotifySuccess = {
         method: "POST",
-        url: "http://discord-overlord:3001/webhook",
+        url: "http://host.docker.internal:3001/webhook",
         sendHeaders: true,
         headerParameters: {
             parameters: [
@@ -162,7 +159,7 @@ return [{
     })
     NotifyFailure = {
         method: "POST",
-        url: "http://discord-overlord:3001/webhook",
+        url: "http://host.docker.internal:3001/webhook",
         sendHeaders: true,
         headerParameters: {
             parameters: [
