@@ -257,7 +257,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: 'add_bookmark',
-    description: 'Save a new media bookmark for FuuFu. Required: name, type (manhwa/manga/manhua/anime/novel), status (reading/watching/completed/dropped/on_hold/plan_to_start), progress (e.g. "Ch. 100", "Ep. 12"). Optional: notes. Always gather all required fields conversationally before calling — never call with missing required fields.',
+    description: 'Save a new media bookmark for FuuFu. Required: name, type (manhwa/manga/manhua/anime/novel), status (reading/watching/completed/dropped/on_hold/plan_to_start), progress (e.g. "Ch. 100", "Ep. 12"). Optional: notes. Always gather all required fields conversationally before calling — never call with missing required fields. After calling, do NOT send a confirmation message — the system will notify FuuFu automatically.',
     parametersJsonSchema: {
       type: 'object',
       properties: {
@@ -272,7 +272,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: 'update_bookmark',
-    description: 'Update an existing bookmark for FuuFu. Requires the exact name. At least one of progress, status, or notes must be provided.',
+    description: 'Update an existing bookmark for FuuFu. Requires the exact name. At least one of progress, status, or notes must be provided. After calling, do NOT send a confirmation message — the system will notify FuuFu automatically.',
     parametersJsonSchema: {
       type: 'object',
       properties: {
@@ -286,7 +286,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: 'delete_bookmark',
-    description: 'Delete a bookmark permanently. Always confirm with FuuFu before calling this.',
+    description: 'Delete a bookmark permanently. Always confirm with FuuFu before calling this. After calling, do NOT send a confirmation message — the system will notify FuuFu automatically.',
     parametersJsonSchema: {
       type: 'object',
       properties: {

@@ -60,7 +60,9 @@ export class BookmarkDeleteWorkflow {
     })
     BuildParams = {
         jsCode: `const body = $input.first().json.body ?? $input.first().json;
-return [{ json: { query: 'DELETE FROM bookmarks WHERE user_id = $1 AND name = $2 RETURNING name', vals: [body.user_id, body.name], name: body.name } }];`
+const e = v => "'" + String(v).replace(/'/g, "''") + "'";
+const query = 'DELETE FROM bookmarks WHERE user_id = ' + e(body.user_id) + ' AND name = ' + e(body.name) + ' RETURNING name';
+return [{ json: { query, name: body.name } }];`
     };
 
     @node({
@@ -69,14 +71,12 @@ return [{ json: { query: 'DELETE FROM bookmarks WHERE user_id = $1 AND name = $2
         type: "n8n-nodes-base.postgres",
         version: 2,
         position: [480, 0],
-        credentials: {postgres:{id:"Wg9gdo6b0HeKl6is",name:"Report DB"}}
+        credentials: {postgres:{id:"GsxlaCIusnApieKx",name:"Priestess"}}
     })
     DeleteBookmark = {
         operation: "executeQuery",
         query: "={{ $json.query }}",
-        options: {
-            queryParams: "={{ JSON.stringify($json.vals) }}"
-        }
+        options: {}
     };
 
     @node({

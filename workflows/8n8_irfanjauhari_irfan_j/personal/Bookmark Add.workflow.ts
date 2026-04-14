@@ -60,18 +60,16 @@ export class BookmarkAddWorkflow {
     })
     BuildParams = {
         jsCode: `const body = $input.first().json.body ?? $input.first().json;
-const { user_id, name, type, status, progress, notes } = body;
-return [{
-  json: {
-    query: \`INSERT INTO bookmarks (user_id, name, type, status, progress, notes)
-VALUES ($1, $2, $3, $4, $5, $6)
+const { user_id, name, type, status } = body;
+const progress = body.progress ?? null;
+const notes = body.notes ?? null;
+const e = v => v === null ? 'NULL' : "'" + String(v).replace(/'/g, "''") + "'";
+const query = \`INSERT INTO bookmarks (user_id, name, type, status, progress, notes)
+VALUES (\${e(user_id)}, \${e(name)}, \${e(type)}, \${e(status)}, \${e(progress)}, \${e(notes)})
 ON CONFLICT (user_id, name) DO UPDATE
-  SET type = $3, status = $4, progress = $5, notes = $6, updated_at = NOW()
-RETURNING id, name\`,
-    vals: [user_id, name, type, status, progress ?? null, notes ?? null],
-    name,
-  }
-}];`
+  SET type = \${e(type)}, status = \${e(status)}, progress = \${e(progress)}, notes = \${e(notes)}, updated_at = NOW()
+RETURNING id, name\`;
+return [{ json: { query, name } }];`
     };
 
     @node({
@@ -80,14 +78,12 @@ RETURNING id, name\`,
         type: "n8n-nodes-base.postgres",
         version: 2,
         position: [480, 0],
-        credentials: {postgres:{id:"Wg9gdo6b0HeKl6is",name:"Report DB"}}
+        credentials: {postgres:{id:"GsxlaCIusnApieKx",name:"Priestess"}}
     })
     UpsertBookmark = {
         operation: "executeQuery",
         query: "={{ $json.query }}",
-        options: {
-            queryParams: "={{ JSON.stringify($json.vals) }}"
-        }
+        options: {}
     };
 
     @node({

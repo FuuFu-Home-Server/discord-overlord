@@ -61,19 +61,15 @@ export class BookmarkUpdateWorkflow {
     BuildQuery = {
         jsCode: `const body = $input.first().json.body ?? $input.first().json;
 const { user_id, name, progress, status, notes } = body;
-
+const e = v => v === null || v === undefined ? 'NULL' : "'" + String(v).replace(/'/g, "''") + "'";
 const sets = [];
-const vals = [user_id, name];
-
-if (progress !== undefined && progress !== null) { sets.push('progress = $' + (vals.length + 1)); vals.push(progress); }
-if (status !== undefined && status !== null)     { sets.push('status = $'   + (vals.length + 1)); vals.push(status); }
-if (notes !== undefined && notes !== null)       { sets.push('notes = $'    + (vals.length + 1)); vals.push(notes); }
-
+if (progress !== undefined && progress !== null) sets.push('progress = ' + e(progress));
+if (status !== undefined && status !== null)     sets.push('status = '   + e(status));
+if (notes !== undefined && notes !== null)       sets.push('notes = '    + e(notes));
 if (sets.length === 0) throw new Error('Nothing to update.');
 sets.push('updated_at = NOW()');
-
-const query = 'UPDATE bookmarks SET ' + sets.join(', ') + ' WHERE user_id = $1 AND name = $2 RETURNING name';
-return [{ json: { query, vals, name } }];`
+const query = 'UPDATE bookmarks SET ' + sets.join(', ') + ' WHERE user_id = ' + e(user_id) + ' AND name = ' + e(name) + ' RETURNING name';
+return [{ json: { query, name } }];`
     };
 
     @node({
@@ -82,14 +78,12 @@ return [{ json: { query, vals, name } }];`
         type: "n8n-nodes-base.postgres",
         version: 2,
         position: [480, 0],
-        credentials: {postgres:{id:"Wg9gdo6b0HeKl6is",name:"Report DB"}}
+        credentials: {postgres:{id:"GsxlaCIusnApieKx",name:"Priestess"}}
     })
     RunUpdate = {
         operation: "executeQuery",
         query: "={{ $json.query }}",
-        options: {
-            queryParams: "={{ JSON.stringify($json.vals) }}"
-        }
+        options: {}
     };
 
     @node({
