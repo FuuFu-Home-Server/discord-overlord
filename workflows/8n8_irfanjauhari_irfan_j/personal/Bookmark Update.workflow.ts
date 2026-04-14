@@ -6,50 +6,60 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 //
 // NODE INDEX
 // ──────────────────────────────────────────────────────────────────
-// Property name    Node type (short)   Flags
-// WebhookTrigger     webhook             [creds]
-// BuildQuery         code
-// RunUpdate          postgres            [creds]
-// RespondOk          respondToWebhook
+// Property name                    Node type (short)         Flags
+// WebhookTrigger                     webhook                    
+// BuildQuery                         code                       
+// RunUpdate                          postgres                   [creds]
+// NotifySuccess                      httpRequest                
 //
 // ROUTING MAP
 // ──────────────────────────────────────────────────────────────────
-// WebhookTrigger → BuildQuery → RunUpdate → RespondOk
+// WebhookTrigger
+//    → BuildQuery
+//      → RunUpdate
+//        → NotifySuccess
 // </workflow-map>
 
+// =====================================================================
+// METADATA DU WORKFLOW
+// =====================================================================
+
 @workflow({
-  id: 'REPLACE_AFTER_IMPORT_2',
-  name: 'Bookmark Update',
-  active: true,
-  settings: { executionOrder: 'v1', callerPolicy: 'workflowsFromSameOwner', availableInMCP: false },
+    id: "rqWbRtbWnfc7CvHT",
+    name: "Bookmark Update",
+    active: true,
+    settings: { executionOrder: "v1", callerPolicy: "workflowsFromSameOwner", availableInMCP: false }
 })
 export class BookmarkUpdateWorkflow {
 
-  @node({
-    id: 'bu000002-0000-0000-0000-000000000001',
-    webhookId: 'bu000002-0000-0000-0000-000000000002',
-    name: 'Webhook Trigger',
-    type: 'n8n-nodes-base.webhook',
-    version: 1,
-    position: [0, 0],
-    credentials: { httpBasicAuth: { id: 's7dUrGqut3lG9PMW', name: 'Overlord' } },
-  })
-  WebhookTrigger = {
-    httpMethod: 'POST',
-    path: 'bookmark-update',
-    authentication: 'basicAuth',
-    options: { responseData: 'json' },
-  };
+    // =====================================================================
+// CONFIGURATION DES NOEUDS
+// =====================================================================
 
-  @node({
-    id: 'bu000002-0000-0000-0000-000000000003',
-    name: 'Build Query',
-    type: 'n8n-nodes-base.code',
-    version: 2,
-    position: [240, 0],
-  })
-  BuildQuery = {
-    jsCode: `const body = $input.first().json.body ?? $input.first().json;
+    @node({
+        id: "bu000002-0000-0000-0000-000000000001",
+        webhookId: "bu000002-0000-0000-0000-000000000002",
+        name: "Webhook Trigger",
+        type: "n8n-nodes-base.webhook",
+        version: 1,
+        position: [0, 0]
+    })
+    WebhookTrigger = {
+        httpMethod: "POST",
+        path: "bookmark-update",
+        authentication: "none",
+        options: {}
+    };
+
+    @node({
+        id: "bu000002-0000-0000-0000-000000000003",
+        name: "Build Query",
+        type: "n8n-nodes-base.code",
+        version: 2,
+        position: [240, 0]
+    })
+    BuildQuery = {
+        jsCode: `const body = $input.first().json.body ?? $input.first().json;
 const { user_id, name, progress, status, notes } = body;
 
 const sets = [];
@@ -63,42 +73,69 @@ if (sets.length === 0) throw new Error('Nothing to update.');
 sets.push('updated_at = NOW()');
 
 const query = 'UPDATE bookmarks SET ' + sets.join(', ') + ' WHERE user_id = $1 AND name = $2 RETURNING name';
-return [{ json: { query, vals } }];`,
-  };
+return [{ json: { query, vals, name } }];`
+    };
 
-  @node({
-    id: 'bu000002-0000-0000-0000-000000000004',
-    name: 'Run Update',
-    type: 'n8n-nodes-base.postgres',
-    version: 2,
-    position: [480, 0],
-    credentials: { postgres: { id: 'Wg9gdo6b0HeKl6is', name: 'Report DB' } },
-  })
-  RunUpdate = {
-    operation: 'executeQuery',
-    query: '={{ $json.query }}',
-    options: {
-      queryParams: '={{ JSON.stringify($json.vals) }}',
-    },
-  };
+    @node({
+        id: "bu000002-0000-0000-0000-000000000004",
+        name: "Run Update",
+        type: "n8n-nodes-base.postgres",
+        version: 2,
+        position: [480, 0],
+        credentials: {postgres:{id:"Wg9gdo6b0HeKl6is",name:"Report DB"}}
+    })
+    RunUpdate = {
+        operation: "executeQuery",
+        query: "={{ $json.query }}",
+        options: {
+            queryParams: "={{ JSON.stringify($json.vals) }}"
+        }
+    };
 
-  @node({
-    id: 'bu000002-0000-0000-0000-000000000005',
-    name: 'Respond Ok',
-    type: 'n8n-nodes-base.respondToWebhook',
-    version: 1,
-    position: [720, 0],
-  })
-  RespondOk = {
-    respondWith: 'json',
-    responseBody: '={{ JSON.stringify({ ok: true }) }}',
-    options: {},
-  };
+    @node({
+        id: "bu000002-0000-0000-0000-000000000005",
+        name: "Notify Success",
+        type: "n8n-nodes-base.httpRequest",
+        version: 4,
+        position: [720, 0]
+    })
+    NotifySuccess = {
+        method: "POST",
+        url: "http://host.docker.internal:3001/webhook",
+        sendHeaders: true,
+        headerParameters: {
+            parameters: [
+                {
+                    name: "Authorization",
+                    value: "=Bearer ae9a28762250d7b72812114db22f52a3"
+                },
+                {
+                    name: "Content-Type",
+                    value: "application/json"
+                }
+            ]
+        },
+        sendBody: true,
+        specifyBody: "json",
+        jsonBody: `={
+  "event": "bookmark.update.success",
+  "via": "priestess",
+  "message": "Bookmark '{{ $('Build Query').item.json.name }}' has been updated."
+}`,
+        options: {
+            timeout: 8000
+        }
+    };
 
-  @links()
-  defineRouting() {
-    this.WebhookTrigger.out(0).to(this.BuildQuery.in(0));
-    this.BuildQuery.out(0).to(this.RunUpdate.in(0));
-    this.RunUpdate.out(0).to(this.RespondOk.in(0));
-  }
+
+    // =====================================================================
+// ROUTAGE ET CONNEXIONS
+// =====================================================================
+
+    @links()
+    defineRouting() {
+        this.WebhookTrigger.out(0).to(this.BuildQuery.in(0));
+        this.BuildQuery.out(0).to(this.RunUpdate.in(0));
+        this.RunUpdate.out(0).to(this.NotifySuccess.in(0));
+    }
 }

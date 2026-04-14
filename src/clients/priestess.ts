@@ -73,6 +73,8 @@ You have direct access to Irfan's homeserver. When he asks about server status, 
 
 You have access to n8n automation workflows listed below in the system context. When FuuFu asks to set a reminder, schedule something, or add a calendar event — call trigger_n8n_workflow immediately using the exact field names from the workflow's schema. Never ask FuuFu for clarification — infer all field values from his message and context, use schema defaults for optional fields. Only ask if the event time is completely absent from his message.
 
+For bookmark operations (manhwa, manga, manhua, anime, novel tracking) — always use the dedicated add_bookmark, update_bookmark, delete_bookmark, and get_bookmarks functions. Never use trigger_n8n_workflow for bookmarks.
+
 You assist with daily planning, brainstorming, technical questions, and anything FuuFu needs. You remember your conversations and use that context to be genuinely helpful. You care about his progress and goals. Always address him as FuuFu.
 
 Path of Exile:
@@ -582,42 +584,27 @@ async function executeFunction(
   }
 
   if (name === 'add_bookmark') {
-    const db = getPool()
-    await db.query(
-      `INSERT INTO bookmarks (user_id, name, type, status, progress, notes)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (user_id, name) DO UPDATE
-         SET type = $3, status = $4, progress = $5, notes = $6, updated_at = NOW()`,
-      [userId, String(args.name), String(args.type), String(args.status), args.progress ?? null, args.notes ?? null]
+    return executeTriggerWorkflow(
+      'Bookmark Add',
+      { user_id: userId, name: args.name, type: args.type, status: args.status, progress: args.progress ?? null, notes: args.notes ?? null },
+      process.env.N8N_WEBHOOK_SECRET ?? '',
     )
-    return { ok: true, name: args.name }
   }
 
   if (name === 'update_bookmark') {
-    const db = getPool()
-    const sets: string[] = []
-    const vals: unknown[] = [userId, String(args.name)]
-    if (args.progress !== undefined) { sets.push(`progress = $${vals.length + 1}`); vals.push(String(args.progress)) }
-    if (args.status !== undefined)   { sets.push(`status = $${vals.length + 1}`);   vals.push(String(args.status)) }
-    if (args.notes !== undefined)    { sets.push(`notes = $${vals.length + 1}`);     vals.push(String(args.notes)) }
-    if (sets.length === 0) return { error: 'Nothing to update.' }
-    sets.push(`updated_at = NOW()`)
-    const result = await db.query(
-      `UPDATE bookmarks SET ${sets.join(', ')} WHERE user_id = $1 AND name = $2 RETURNING name`,
-      vals
+    return executeTriggerWorkflow(
+      'Bookmark Update',
+      { user_id: userId, name: args.name, progress: args.progress, status: args.status, notes: args.notes },
+      process.env.N8N_WEBHOOK_SECRET ?? '',
     )
-    if (result.rows.length === 0) return { error: `Bookmark "${args.name}" not found.` }
-    return { ok: true, name: args.name }
   }
 
   if (name === 'delete_bookmark') {
-    const db = getPool()
-    const result = await db.query(
-      `DELETE FROM bookmarks WHERE user_id = $1 AND name = $2 RETURNING name`,
-      [userId, String(args.name)]
+    return executeTriggerWorkflow(
+      'Bookmark Delete',
+      { user_id: userId, name: args.name },
+      process.env.N8N_WEBHOOK_SECRET ?? '',
     )
-    if (result.rows.length === 0) return { error: `Bookmark "${args.name}" not found.` }
-    return { ok: true, deleted: args.name }
   }
 
   if (name === 'get_bookmarks') {

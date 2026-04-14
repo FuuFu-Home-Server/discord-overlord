@@ -23,7 +23,7 @@ import { workflow, node, links } from '@n8n-as-code/transformer';
 @workflow({
     id: "kQVDRh97IcXn2S0v",
     name: "Hydration Reminder",
-    active: false,
+    active: true,
     settings: { executionOrder: "v1", callerPolicy: "workflowsFromSameOwner", availableInMCP: false }
 })
 export class HydrationReminderWorkflow {
@@ -44,7 +44,7 @@ export class HydrationReminderWorkflow {
             interval: [
                 {
                     field: "cronExpression",
-                    expression: "0 1-15 * * 1-5"
+                    expression: "0 1-15/2 * * 1-5"
                 }
             ]
         }
@@ -78,7 +78,7 @@ export class HydrationReminderWorkflow {
         jsonBody: `{
   "event": "health.hydration.reminder",
   "via": "priestess",
-  "message": "Hourly hydration check — remind FuuFu to drink a glass of water. Keep it short and warm, one sentence."
+  "message": "Hydration reminder — it's been 2 hours, remind FuuFu to drink a glass of water. Keep it short and warm, one sentence."
 }`,
         options: {
             timeout: 8000
