@@ -1,3 +1,4 @@
+import { execFileSync } from 'child_process'
 import type { Client } from 'discord.js'
 import type { ChatResult } from './priestess'
 
@@ -22,7 +23,12 @@ async function sendLog(content: string): Promise<void> {
 }
 
 export async function logStartup(tag: string): Promise<void> {
-  await sendLog(`I'm back. \`${tag}\` — ${new Date().toISOString()}`)
+  let commit = ''
+  try {
+    commit = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim()
+  } catch { /* not in git repo or git unavailable */ }
+  const build = commit ? ` · \`${commit}\`` : ''
+  await sendLog(`I'm back. \`${tag}\`${build} — ${new Date().toISOString()}`)
 }
 
 export async function logPriestessCall(userId: string, message: string, result: ChatResult, durationMs: number): Promise<void> {
