@@ -16,10 +16,12 @@ export async function getNotesBlock(userId: string): Promise<string> {
 }
 
 export async function handleAddNote(args: Record<string, unknown>, userId: string): Promise<Record<string, unknown>> {
+  const title = args.title ? String(args.title).trim() : ''
+  if (!title) return { error: 'Title is required. Please provide a title for this note.' }
   const db = getPool()
   const result = await db.query(
-    'INSERT INTO priestess_todos (user_id, content) VALUES ($1, $2) RETURNING id',
-    [userId, String(args.content)],
+    'INSERT INTO priestess_todos (user_id, title, content) VALUES ($1, $2, $3) RETURNING id',
+    [userId, title, String(args.content)],
   )
   return { ok: true, id: result.rows[0].id }
 }
@@ -29,7 +31,7 @@ export async function handleListNotes(args: Record<string, unknown>, userId: str
   const filter = String(args.filter ?? 'pending')
   const whereClause = filter === 'done' ? 'done = TRUE' : filter === 'all' ? 'TRUE' : 'done = FALSE'
   const result = await db.query(
-    `SELECT id, content, done, created_at FROM priestess_todos WHERE user_id = $1 AND ${whereClause} ORDER BY created_at DESC LIMIT 50`,
+    `SELECT id, title, content, done, created_at FROM priestess_todos WHERE user_id = $1 AND ${whereClause} ORDER BY created_at DESC LIMIT 50`,
     [userId],
   )
   return { notes: result.rows }
@@ -39,8 +41,8 @@ export async function handleCompleteNote(args: Record<string, unknown>, userId: 
   const db = getPool()
   const result = await db.query(
     `UPDATE priestess_todos SET done = TRUE, updated_at = NOW()
-     WHERE user_id = $1 AND done = FALSE AND content ILIKE $2
-     RETURNING id, content`,
+     WHERE user_id = $1 AND done = FALSE AND (title ILIKE $2 OR content ILIKE $2)
+     RETURNING id, title, content`,
     [userId, `%${String(args.match)}%`],
   )
   if (result.rows.length === 0) return { error: 'No matching pending note found.' }
@@ -50,7 +52,7 @@ export async function handleCompleteNote(args: Record<string, unknown>, userId: 
 export async function handleDeleteNote(args: Record<string, unknown>, userId: string): Promise<Record<string, unknown>> {
   const db = getPool()
   const result = await db.query(
-    'DELETE FROM priestess_todos WHERE user_id = $1 AND content ILIKE $2 RETURNING id, content',
+    'DELETE FROM priestess_todos WHERE user_id = $1 AND (title ILIKE $2 OR content ILIKE $2) RETURNING id, title, content',
     [userId, `%${String(args.match)}%`],
   )
   if (result.rows.length === 0) return { error: 'No matching note found.' }

@@ -63,13 +63,14 @@ export const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: 'add_note',
-    description: 'Save a quick note or todo item for FuuFu.',
+    description: 'Save a quick note or todo item for FuuFu. Always gather both title and content conversationally before calling — never call without a title. If no title is provided, ask for one before proceeding.',
     parametersJsonSchema: {
       type: 'object',
       properties: {
+        title:   { type: 'string', description: 'Short title for the note (required)' },
         content: { type: 'string', description: 'The note or todo content' },
       },
-      required: ['content'],
+      required: ['title', 'content'],
     },
   },
   {
